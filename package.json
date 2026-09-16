@@ -1,0 +1,34 @@
+{
+    "name":  "budera",
+    "version":  "0.1.0",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "next dev",
+                    "build":  "next build",
+                    "start":  "next start",
+                    "typecheck":  "tsc --noEmit",
+                    "test":  "vitest run",
+                    "db:generate":  "drizzle-kit generate",
+                    "db:migrate":  "tsx scripts/migrate.mts",
+                    "seed:demo":  "tsx scripts/seed-demo.mts"
+                },
+    "dependencies":  {
+                         "@anthropic-ai/sdk":  "^0.126.0",
+                         "@electric-sql/pglite":  "^0.5.8",
+                         "drizzle-orm":  "^0.45.2",
+                         "next":  "^16.3.5",
+                         "postgres":  "^3.4.9",
+                         "react":  "^19.3.0",
+                         "react-dom":  "^19.3.0",
+                         "zod":  "^4.6.5"
+                     },
+    "devDependencies":  {
+                            "@types/node":  "^22.20.3",
+                            "@types/react":  "^19.3.0",
+                            "@types/react-dom":  "^19.3.0",
+                            "drizzle-kit":  "^0.31.10",
+                            "tsx":  "^4.23.13",
+                            "typescript":  "^5.9.3",
+                            "vitest":  "^5.0.1"
+                        }
+}
