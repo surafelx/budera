@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function SignOutButton({ className = "nav-link" }: { className?: string }) {
+export function SignOutButton({ className = "nav-link", children }: { className?: string; children?: React.ReactNode }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   return (
@@ -18,6 +18,7 @@ export function SignOutButton({ className = "nav-link" }: { className?: string }
         router.refresh();
       }}
     >
+      {children}
       {busy ? "Signing out…" : "Sign out"}
     </button>
   );

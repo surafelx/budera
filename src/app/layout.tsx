@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     "Budera's five AI specialists study your business, your market and your competitors, then hand you a short brief and the tasks that matter this week.",
 };
 
-export const viewport: Viewport = { themeColor: "#0c1326" };
+export const viewport: Viewport = { themeColor: "#04060c" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

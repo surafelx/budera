@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
@@ -7,6 +8,7 @@ import { agentBySlug } from "@/agents/registry";
 import { expireStaleRuns } from "@/agents/runner";
 import { TOOL_INFO, type Source } from "@/tools/meta";
 import { AgentReport } from "@/components/app/AgentReport";
+import { AgentGlyph, agentState } from "@/components/app/AgentGlyph";
 import { RunButton } from "@/components/app/RunButton";
 import { TaskList } from "@/components/app/TaskList";
 import { byPriorityThenDue, dueLabel, relativeTime, scoreBand } from "@/lib/format";
@@ -37,11 +39,16 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
   return (
     <div className="page">
       <header className="page-head">
-        <div>
-          <p className="eyebrow">Built in · {meta.role}</p>
-          <h1>{meta.name}</h1>
-          <p className="page-sub">{meta.watches}</p>
-          <p className="agent-tools mono">{meta.tools.length ? meta.tools.map((t) => TOOL_INFO[t].label).join(" · ") : "Works from your company profile"}</p>
+        <div className="agent-id">
+          <AgentGlyph agentKey={meta.id} name={meta.name} state={agentState(latest, Boolean(report))} size={64} />
+          <div>
+            <p className="eyebrow">Built in · {meta.role}</p>
+            <h1>{meta.name}</h1>
+            <p className="page-sub">{meta.watches}</p>
+            <p className="agent-tools mono">
+              {meta.tools.length ? meta.tools.map((t) => <span key={t} className="tool-tag">{TOOL_INFO[t].label}</span>) : <span className="tool-tag plain">Works from your company profile</span>}
+            </p>
+          </div>
         </div>
         <RunButton agents={[meta.id]} label={report ? "Run again" : `Run ${meta.name}`} initiallyRunning={busy} />
       </header>
@@ -60,7 +67,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
       ) : (
         <>
           <section className="panel report-head">
-            <div className={`big-score band-${scoreBand(output.score.value)}`}>
+            <div className={`big-score band-${scoreBand(output.score.value)}`} style={{ "--v": output.score.value } as CSSProperties}>
               <span className="big-score-value">{output.score.value}</span>
               <span className="big-score-label">{meta.scoreLabel}</span>
             </div>

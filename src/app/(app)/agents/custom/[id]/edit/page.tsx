@@ -25,7 +25,7 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
   const setup = describeSetup();
 
   return (
-    <div className="page narrow">
+    <div className="page">
       <header className="page-head">
         <div>
           <p className="eyebrow">

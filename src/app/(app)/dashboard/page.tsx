@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
@@ -6,6 +7,7 @@ import { tasks, type AgentRun } from "@/db/schema";
 import { AGENT_IDS, AGENTS, customKey } from "@/agents/registry";
 import { MAX_CUSTOM_AGENTS } from "@/agents/custom";
 import { expireStaleRuns, latestRuns, latestSuccessfulRuns } from "@/agents/runner";
+import { AgentGlyph, agentHue, agentState } from "@/components/app/AgentGlyph";
 import { RunButton } from "@/components/app/RunButton";
 import { TaskList } from "@/components/app/TaskList";
 import { agentHref, agentNames, allAgentKeys, listCustomAgents } from "@/lib/agents-data";
@@ -17,16 +19,17 @@ export const dynamic = "force-dynamic";
 
 type Scored = { summary: string; score?: { value: number; rationale: string } };
 
-function Tile({ href, name, run, report, scoreLabel, emptyText }: { href: string; name: string; run?: AgentRun; report?: AgentRun; scoreLabel: string; emptyText: string }) {
+function Tile({ agentKey, href, name, run, report, scoreLabel, emptyText }: { agentKey: string; href: string; name: string; run?: AgentRun; report?: AgentRun; scoreLabel: string; emptyText: string }) {
   const out = report?.output as Scored | undefined;
-  const busy = run?.status === "queued" || run?.status === "running";
-  const failed = run?.status === "failed";
+  const state = agentState(run, Boolean(report));
+  const busy = state === "working";
   return (
-    <Link href={href} className="score-tile">
+    <Link href={href} className={`score-tile state-${state}`} style={{ "--h": agentHue(agentKey) } as CSSProperties}>
       <div className="score-top">
-        <span className="score-agent">{name}</span>
-        {busy ? <span className="pill busy">Working</span> : failed ? <span className="pill fail">Failed</span> : report ? <span className="pill ok">Ready</span> : <span className="pill none">Not run</span>}
+        <AgentGlyph agentKey={agentKey} name={name} state={state} size={34} />
+        {busy ? <span className="pill busy">Working</span> : state === "failed" ? <span className="pill fail">Failed</span> : report ? <span className="pill ok">Ready</span> : <span className="pill none">Idle</span>}
       </div>
+      <span className="score-agent">{name}</span>
       {out?.score ? (
         <>
           <p className={`score-value band-${scoreBand(out.score.value)}`}>
@@ -64,6 +67,11 @@ export default async function DashboardPage() {
   const anyRunning = keys.some((k) => latest[k]?.status === "queued" || latest[k]?.status === "running");
   const hasReports = Object.keys(reports).length > 0;
   const top = [...openTasks].sort(byPriorityThenDue).slice(0, 8);
+  const working = keys.filter((k) => latest[k]?.status === "queued" || latest[k]?.status === "running").length;
+  const failing = keys.filter((k) => latest[k]?.status === "failed").length;
+  const highPriority = openTasks.filter((t) => t.priority === "high").length;
+  const fleetState = working ? "is-working" : failing ? "is-failing" : hasReports ? "" : "is-idle";
+  const fleetText = working ? `${working} agent${working === 1 ? "" : "s"} working` : failing ? `${failing} need${failing === 1 ? "s" : ""} attention` : hasReports ? "All agents standing by" : "Waiting for the first run";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
@@ -82,9 +90,34 @@ export default async function DashboardPage() {
         <RunButton agents={keys} label={hasReports ? "Run all agents again" : "Run all agents"} initiallyRunning={anyRunning} />
       </header>
 
+      <section className="fleet" aria-label="Agent status">
+        <p className={`fleet-live mono ${fleetState}`} role="status">
+          <i aria-hidden="true" />
+          {fleetText}
+        </p>
+        <dl className="fleet-stats">
+          <div>
+            <dt>Agents</dt>
+            <dd>{keys.length}</dd>
+          </div>
+          <div>
+            <dt>Reports</dt>
+            <dd>{Object.keys(reports).length}</dd>
+          </div>
+          <div>
+            <dt>Open tasks</dt>
+            <dd>{openTasks.length}</dd>
+          </div>
+          <div>
+            <dt>High priority</dt>
+            <dd className={highPriority ? "hot" : undefined}>{highPriority}</dd>
+          </div>
+        </dl>
+      </section>
+
       <section aria-label="Built-in agents" className="scores">
         {AGENT_IDS.map((id) => (
-          <Tile key={id} href={agentHref(id)} name={AGENTS[id].name} run={latest[id]} report={reports[id]} scoreLabel={AGENTS[id].scoreLabel} emptyText={AGENTS[id].returns} />
+          <Tile key={id} agentKey={id} href={agentHref(id)} name={AGENTS[id].name} run={latest[id]} report={reports[id]} scoreLabel={AGENTS[id].scoreLabel} emptyText={AGENTS[id].returns} />
         ))}
       </section>
 
@@ -106,7 +139,7 @@ export default async function DashboardPage() {
           <div className="scores">
             {customs.map((c) => {
               const k = customKey(c.id);
-              return <Tile key={c.id} href={agentHref(k)} name={c.name} run={latest[k]} report={reports[k]} scoreLabel={c.scoreLabel} emptyText={c.role} />;
+              return <Tile key={c.id} agentKey={k} href={agentHref(k)} name={c.name} run={latest[k]} report={reports[k]} scoreLabel={c.scoreLabel} emptyText={c.role} />;
             })}
           </div>
         )}
@@ -148,6 +181,7 @@ export default async function DashboardPage() {
               const run = latest[k];
               return (
                 <li key={k}>
+                  <AgentGlyph agentKey={k} name={names[k]} size={26} />
                   <Link href={agentHref(k)} className="summary-name">
                     {names[k]}
                   </Link>

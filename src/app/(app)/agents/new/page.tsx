@@ -16,7 +16,7 @@ export default async function NewAgentPage() {
   const setup = describeSetup();
 
   return (
-    <div className="page narrow">
+    <div className="page">
       <header className="page-head">
         <div>
           <p className="eyebrow">

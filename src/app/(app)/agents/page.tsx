@@ -1,9 +1,11 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getDb } from "@/db";
 import { AGENT_IDS, AGENTS, customKey } from "@/agents/registry";
 import { MAX_CUSTOM_AGENTS } from "@/agents/custom";
-import { latestSuccessfulRuns } from "@/agents/runner";
+import { latestRuns, latestSuccessfulRuns } from "@/agents/runner";
+import { AgentGlyph, agentHue, agentState } from "@/components/app/AgentGlyph";
 import { TOOL_INFO, type ToolId } from "@/tools/meta";
 import { listCustomAgents } from "@/lib/agents-data";
 import { relativeTime } from "@/lib/format";
@@ -17,7 +19,7 @@ const SCHEDULE = { manual: "Runs when you press Run", daily: "Runs daily", weekl
 export default async function AgentsPage() {
   const { company } = await requireCompany();
   const db = await getDb();
-  const [customs, reports] = await Promise.all([listCustomAgents(db, company.id), latestSuccessfulRuns(db, company.id)]);
+  const [customs, reports, latest] = await Promise.all([listCustomAgents(db, company.id), latestSuccessfulRuns(db, company.id), latestRuns(db, company.id)]);
 
   return (
     <div className="page">
@@ -52,14 +54,18 @@ export default async function AgentsPage() {
         ) : (
           <ul className="agent-cards">
             {customs.map((c) => {
-              const report = reports[customKey(c.id)];
+              const k = customKey(c.id);
+              const report = reports[k];
               return (
                 <li key={c.id}>
-                  <Link href={`/agents/custom/${c.id}`} className="agent-card">
-                    <span className="eyebrow">Custom · {SCHEDULE[c.schedule] ?? "Manual"}</span>
+                  <Link href={`/agents/custom/${c.id}`} className="agent-card" style={{ "--h": agentHue(k) } as CSSProperties}>
+                    <span className="agent-card-top">
+                      <AgentGlyph agentKey={k} name={c.name} state={agentState(latest[k], Boolean(report))} size={40} />
+                      <span className="eyebrow">{SCHEDULE[c.schedule] ?? "Manual"}</span>
+                    </span>
                     <strong>{c.name}</strong>
                     <span className="agent-card-role">{c.role}</span>
-                    <span className="agent-card-tools mono">
+                    <span className={`agent-card-tools mono${c.tools.length ? "" : " plain"}`}>
                       {c.tools.length ? c.tools.map((t) => TOOL_INFO[t as ToolId]?.label ?? t).join(" · ") : "Profile only"}
                     </span>
                     <span className="agent-card-when mono">{report?.finishedAt ? `Last report ${relativeTime(report.finishedAt)}` : "No report yet"}</span>
@@ -81,11 +87,14 @@ export default async function AgentsPage() {
             const report = reports[id];
             return (
               <li key={id}>
-                <Link href={`/agents/${a.slug}`} className="agent-card">
-                  <span className="eyebrow">{a.role}</span>
+                <Link href={`/agents/${a.slug}`} className="agent-card" style={{ "--h": agentHue(id) } as CSSProperties}>
+                  <span className="agent-card-top">
+                    <AgentGlyph agentKey={id} name={a.name} state={agentState(latest[id], Boolean(report))} size={40} />
+                    <span className="eyebrow">Built in</span>
+                  </span>
                   <strong>{a.name}</strong>
                   <span className="agent-card-role">{a.returns}</span>
-                  <span className="agent-card-tools mono">{a.tools.length ? a.tools.map((t) => TOOL_INFO[t].label).join(" · ") : "Profile only"}</span>
+                  <span className={`agent-card-tools mono${a.tools.length ? "" : " plain"}`}>{a.tools.length ? a.tools.map((t) => TOOL_INFO[t].label).join(" · ") : "Profile only"}</span>
                   <span className="agent-card-when mono">{report?.finishedAt ? `Last report ${relativeTime(report.finishedAt)}` : "No report yet"}</span>
                 </Link>
               </li>

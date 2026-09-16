@@ -1,5 +1,7 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AGENTS, AGENT_IDS } from "@/agents/registry";
+import { AgentGlyph, agentHue } from "@/components/app/AgentGlyph";
 import { RadarSweep } from "@/components/landing/RadarSweep";
 import "./landing.css";
 
@@ -106,7 +108,8 @@ export default function Landing() {
               <ol className="console-lines">
                 {CONSOLE.map((line) => (
                   <li key={line.agent} className={line.state}>
-                    <span className="c-state" aria-label={line.state === "done" ? "Finished" : "Working"} />
+                    <AgentGlyph agentKey={line.agent} name={AGENTS[line.agent].name} state={line.state === "done" ? "ready" : "working"} size={26} />
+                    <span className="sr-only">{line.state === "done" ? "Finished:" : "Working:"}</span>
                     <span className="c-agent">{AGENTS[line.agent].name}</span>
                     <span className="c-text mono">{line.text}</span>
                   </li>
@@ -148,7 +151,7 @@ export default function Landing() {
 
             <div className="brief-scores">
               {BRIEF_SCORES.map((s) => (
-                <div key={s.agent} className="bscore">
+                <div key={s.agent} className="bscore" style={{ "--h": agentHue(s.agent) } as CSSProperties}>
                   <span className="bscore-name">{AGENTS[s.agent].scoreLabel}</span>
                   <span className="bscore-bar" aria-hidden="true"><i style={{ width: `${s.value}%` }} /></span>
                   <span className="bscore-val mono">{s.value}</span>
@@ -183,11 +186,14 @@ export default function Landing() {
             {AGENT_IDS.map((id) => {
               const a = AGENTS[id];
               return (
-                <li key={id} className="roster-row">
+                <li key={id} className="roster-row" style={{ "--h": agentHue(id) } as CSSProperties}>
                   <div className="roster-name">
-                    <span className="eyebrow on-ink">{a.role}</span>
-                    <h3>{a.name}</h3>
-                    {a.tools.length > 0 && <span className="web-badge mono">Researches the web</span>}
+                    <AgentGlyph agentKey={id} name={a.name} size={46} />
+                    <div>
+                      <span className="eyebrow on-ink">{a.role}</span>
+                      <h3>{a.name}</h3>
+                      {a.tools.length > 0 && <span className="web-badge mono">Researches the web</span>}
+                    </div>
                   </div>
                   <div className="roster-col">
                     <span className="roster-label mono">Watches</span>
@@ -217,8 +223,11 @@ export default function Landing() {
           </div>
           <div className="spec-card" aria-label="Example custom agent">
             <div className="spec-head">
-              <span className="eyebrow">Custom agent · runs weekly</span>
-              <strong>Funding Scout</strong>
+              <AgentGlyph agentKey="template:funding" name="Funding Scout" state="ready" size={48} />
+              <div>
+                <span className="eyebrow">Custom agent · runs weekly</span>
+                <strong>Funding Scout</strong>
+              </div>
             </div>
             <dl>
               <dt className="mono">Job</dt>

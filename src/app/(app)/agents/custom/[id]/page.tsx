@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -10,6 +11,7 @@ import { expireStaleRuns } from "@/agents/runner";
 import type { CustomOutput } from "@/agents/schemas";
 import { TOOL_INFO, type Source, type ToolId } from "@/tools/meta";
 import { CustomReport } from "@/components/app/AgentReport";
+import { AgentGlyph, agentState } from "@/components/app/AgentGlyph";
 import { RunButton } from "@/components/app/RunButton";
 import { TaskList } from "@/components/app/TaskList";
 import { byPriorityThenDue, dueLabel, relativeTime, scoreBand } from "@/lib/format";
@@ -41,16 +43,27 @@ export default async function CustomAgentPage({ params }: { params: Promise<{ id
   return (
     <div className="page">
       <header className="page-head">
-        <div>
-          <p className="eyebrow">
-            <Link href="/agents">Your agents</Link> · {SCHEDULE[agent.schedule] ?? "Manual"}
-          </p>
-          <h1>{agent.name}</h1>
-          <p className="page-sub">{agent.role}</p>
-          <p className="agent-tools mono">
-            {agent.tools.length ? agent.tools.map((t) => TOOL_INFO[t as ToolId]?.label ?? t).join(" · ") : "Works from your company profile"}
-            {agent.model ? ` · model ${agent.model}` : ""}
-          </p>
+        <div className="agent-id">
+          <AgentGlyph agentKey={key} name={agent.name} state={agentState(latest, Boolean(report))} size={64} />
+          <div>
+            <p className="eyebrow">
+              <Link href="/agents">Your agents</Link> · {SCHEDULE[agent.schedule] ?? "Manual"}
+            </p>
+            <h1>{agent.name}</h1>
+            <p className="page-sub">{agent.role}</p>
+            <p className="agent-tools mono">
+              {agent.tools.length ? (
+                agent.tools.map((t) => (
+                  <span key={t} className="tool-tag">
+                    {TOOL_INFO[t as ToolId]?.label ?? t}
+                  </span>
+                ))
+              ) : (
+                <span className="tool-tag plain">Works from your company profile</span>
+              )}
+              {agent.model && <span className="tool-tag plain">model {agent.model}</span>}
+            </p>
+          </div>
         </div>
         <div className="head-actions">
           <Link href={`/agents/custom/${agent.id}/edit`} className="btn btn-ghost">
@@ -75,7 +88,7 @@ export default async function CustomAgentPage({ params }: { params: Promise<{ id
         <>
           <section className={`panel report-head${output.score ? "" : " no-score"}`}>
             {output.score && (
-              <div className={`big-score band-${scoreBand(output.score.value)}`}>
+              <div className={`big-score band-${scoreBand(output.score.value)}`} style={{ "--v": output.score.value } as CSSProperties}>
                 <span className="big-score-value">{output.score.value}</span>
                 <span className="big-score-label">{agent.scoreLabel || "Score"}</span>
               </div>
