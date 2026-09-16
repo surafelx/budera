@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { LlmAgentModel } from "@/agents/engine";
 import { executeRun, queueRuns } from "@/agents/runner";
 import { jsonError, readJson, sameOrigin } from "@/lib/http";
-import { companyFor, currentUser } from "@/lib/session";
+import { activeCompany, currentUser } from "@/lib/session";
 
 // Research agents make several model and tool calls; give background work room to finish.
 export const maxDuration = 300;
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   if (!sameOrigin(request)) return jsonError("Request blocked.", 403);
   const user = await currentUser();
   if (!user) return jsonError("Sign in first.", 401);
-  const company = await companyFor(user.id);
+  const company = await activeCompany();
   if (!company) return jsonError("Finish your company profile first.", 409);
 
   const parsed = bodySchema.safeParse(await readJson(request));

@@ -1,7 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createPgliteDb, type Db } from "@/db";
-import { users } from "@/db/schema";
-import { createSession, deleteSession, hashPassword, hashToken, userForToken, verifyPassword } from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { companies, users } from "@/db/schema";
+import { createSession, deleteSession, hashPassword, hashToken, sessionForToken, setActiveCompany, userForToken, verifyPassword } from "@/lib/auth";
+import { listCompanies, pickActive } from "@/lib/companies";
 import { companySchema, signupSchema } from "@/lib/validation";
 
 describe("passwords", () => {
@@ -32,6 +34,29 @@ describe("sessions", () => {
     await deleteSession(db, token);
     expect(await userForToken(db, token)).toBeNull();
     expect(await userForToken(db, undefined)).toBeNull();
+  });
+
+  it("lets an owner keep several companies and remembers the active one per session", async () => {
+    const profile = { industry: "Coffee", country: "Ethiopia", stage: "Idea", teamSize: "Just me", revenueBand: "None yet", offering: "Coffee", targetCustomers: "Cafes", goals: "Grow" };
+    const [owner] = await db.insert(users).values({ email: "multi@b.co", name: "M", passwordHash: "x" }).returning();
+    const [stranger] = await db.insert(users).values({ email: "other@b.co", name: "O", passwordHash: "x" }).returning();
+    const [first] = await db.insert(companies).values({ ...profile, name: "First", ownerId: owner.id }).returning();
+    const [second] = await db.insert(companies).values({ ...profile, name: "Second", ownerId: owner.id }).returning();
+    const [theirs] = await db.insert(companies).values({ ...profile, name: "Theirs", ownerId: stranger.id }).returning();
+
+    const laptop = await createSession(db, owner.id);
+    const phone = await createSession(db, owner.id);
+    expect(await setActiveCompany(db, laptop.token, second.id)).toBe(true);
+    expect(await setActiveCompany(db, laptop.token, theirs.id)).toBe(false);
+
+    const active = async (token: string) => pickActive(await listCompanies(db, owner.id), (await sessionForToken(db, token))?.activeCompanyId)?.name;
+    expect((await listCompanies(db, owner.id)).map((c) => c.name)).toEqual(["First", "Second"]);
+    expect(await active(laptop.token)).toBe("Second");
+    expect(await active(phone.token)).toBe("First");
+
+    await db.delete(companies).where(eq(companies.id, second.id));
+    expect((await sessionForToken(db, laptop.token))?.activeCompanyId).toBeNull();
+    expect(await active(laptop.token)).toBe(first.name);
   });
 });
 

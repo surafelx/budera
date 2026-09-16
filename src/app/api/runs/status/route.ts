@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { expireStaleRuns, latestRuns } from "@/agents/runner";
 import { jsonError } from "@/lib/http";
-import { companyFor, currentUser } from "@/lib/session";
+import { activeCompany, currentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const user = await currentUser();
   if (!user) return jsonError("Sign in first.", 401);
-  const company = await companyFor(user.id);
+  const company = await activeCompany();
   if (!company) return jsonError("No company profile yet.", 409);
 
   const db = await getDb();

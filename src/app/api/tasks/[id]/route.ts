@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { tasks } from "@/db/schema";
 import { jsonError, readJson, sameOrigin } from "@/lib/http";
-import { companyFor, currentUser } from "@/lib/session";
+import { activeCompany, currentUser } from "@/lib/session";
 
 const bodySchema = z.object({ status: z.enum(["open", "done"]) });
 
@@ -12,7 +12,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!sameOrigin(request)) return jsonError("Request blocked.", 403);
   const user = await currentUser();
   if (!user) return jsonError("Sign in first.", 401);
-  const company = await companyFor(user.id);
+  const company = await activeCompany();
   if (!company) return jsonError("No company profile yet.", 409);
 
   const { id } = await params;

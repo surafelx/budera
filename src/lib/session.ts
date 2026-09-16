@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { companies, type Company, type User } from "@/db/schema";
-import { SESSION_COOKIE, SESSION_DAYS, userForToken } from "./auth";
+import type { Company, User } from "@/db/schema";
+import { SESSION_COOKIE, SESSION_DAYS, sessionForToken } from "./auth";
+import { listCompanies, pickActive } from "./companies";
 
 export const sessionCookieOptions = {
   httpOnly: true,
@@ -13,22 +13,32 @@ export const sessionCookieOptions = {
   maxAge: SESSION_DAYS * 24 * 60 * 60,
 };
 
-export async function currentUser(): Promise<User | null> {
-  const store = await cookies();
-  return userForToken(await getDb(), store.get(SESSION_COOKIE)?.value);
+export async function sessionToken(): Promise<string | undefined> {
+  return (await cookies()).get(SESSION_COOKIE)?.value;
 }
 
-export async function companyFor(userId: string): Promise<Company | null> {
+export async function currentUser(): Promise<User | null> {
+  return (await sessionForToken(await getDb(), await sessionToken()))?.user ?? null;
+}
+
+/** Signed-in user, all their companies, and the one this session is working on (null before onboarding). */
+export async function currentWorkspace(): Promise<{ user: User; company: Company | null; companies: Company[] } | null> {
   const db = await getDb();
-  const rows = await db.select().from(companies).where(eq(companies.ownerId, userId)).limit(1);
-  return rows[0] ?? null;
+  const session = await sessionForToken(db, await sessionToken());
+  if (!session) return null;
+  const companies = await listCompanies(db, session.user.id);
+  return { user: session.user, company: pickActive(companies, session.activeCompanyId), companies };
+}
+
+/** For API routes: the active company of the signed-in owner, or null. */
+export async function activeCompany(): Promise<Company | null> {
+  return (await currentWorkspace())?.company ?? null;
 }
 
 /** For app pages: signed-in user with a finished company profile, or a redirect to the step they're missing. */
-export async function requireCompany(): Promise<{ user: User; company: Company }> {
-  const user = await currentUser();
-  if (!user) redirect("/login");
-  const company = await companyFor(user.id);
-  if (!company) redirect("/onboarding");
-  return { user, company };
+export async function requireCompany(): Promise<{ user: User; company: Company; companies: Company[] }> {
+  const workspace = await currentWorkspace();
+  if (!workspace) redirect("/login");
+  if (!workspace.company) redirect("/onboarding");
+  return { user: workspace.user, company: workspace.company, companies: workspace.companies };
 }

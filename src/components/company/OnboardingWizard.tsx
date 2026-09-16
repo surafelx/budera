@@ -19,7 +19,7 @@ const LABELS: Partial<Record<keyof CompanyDraft, string>> = {
   offering: "Describe what you sell", targetCustomers: "Describe who buys from you", goals: "Add at least one goal",
 };
 
-export function OnboardingWizard({ firstName }: { firstName: string }) {
+export function OnboardingWizard({ firstName, adding = false }: { firstName: string; adding?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<CompanyDraft>(EMPTY_COMPANY);
@@ -50,7 +50,7 @@ export function OnboardingWizard({ firstName }: { firstName: string }) {
     }
     setBusy(true);
     try {
-      const res = await fetch("/api/company", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
+      const res = await fetch("/api/company", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
       const data = (await res.json()) as { error?: string; fields?: Record<string, string>; next?: string };
       if (!res.ok) {
         setErrors(data.fields ?? {});
@@ -75,8 +75,8 @@ export function OnboardingWizard({ firstName }: { firstName: string }) {
           <span key={s.id} className={i <= step ? "on" : ""} />
         ))}
       </div>
-      <p className="eyebrow">Step {step + 2} of 6</p>
-      <h1>{step === 0 ? `Welcome, ${firstName}. Tell us about your company.` : section.title}</h1>
+      <p className="eyebrow">{adding ? `New company · step ${step + 1} of ${SECTIONS.length}` : `Step ${step + 2} of ${SECTIONS.length + 1}`}</p>
+      <h1>{step === 0 ? (adding ? "Add a company" : `Welcome, ${firstName}. Tell us about your company.`) : section.title}</h1>
       <p className="wizard-intro">{section.intro}</p>
 
       <CompanyFields section={section.id} value={draft} onChange={setDraft} errors={errors} />
@@ -94,7 +94,7 @@ export function OnboardingWizard({ firstName }: { firstName: string }) {
           </button>
         )}
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {last ? (busy ? "Saving…" : "Finish and open my dashboard") : "Continue"}
+          {last ? (busy ? "Saving…" : adding ? "Add company" : "Finish and open my dashboard") : "Continue"}
         </button>
       </div>
     </form>

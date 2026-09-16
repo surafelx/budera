@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DeleteCompanyButton } from "@/components/company/DeleteCompanyButton";
 import { SettingsForm } from "@/components/company/SettingsForm";
 import { describeSetup } from "@/llm/config";
 import { requireCompany } from "@/lib/session";
@@ -16,16 +17,18 @@ function Status({ ok, children }: { ok: boolean; children: React.ReactNode }) {
 }
 
 export default async function SettingsPage() {
-  const { user, company } = await requireCompany();
+  const { user, company, companies } = await requireCompany();
   const setup = describeSetup();
 
   return (
     <div className="page narrow">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Settings</p>
+          <p className="eyebrow">Settings · {company.name}</p>
           <h1>Company profile</h1>
-          <p className="page-sub">Every agent reads these answers. Keep them current and the brief stays sharp.</p>
+          <p className="page-sub">
+            Every agent reads these answers for {company.name}. Keep them current and the brief stays sharp. Use the company switcher at the top to edit another company.
+          </p>
         </div>
       </header>
       <SettingsForm
@@ -75,9 +78,11 @@ export default async function SettingsPage() {
           <h2>Account</h2>
         </header>
         <p>
-          Signed in as <strong>{user.email}</strong>.
+          Signed in as <strong>{user.email}</strong>. You have {companies.length} {companies.length === 1 ? "company" : "companies"}.
         </p>
       </section>
+
+      <DeleteCompanyButton name={company.name} others={companies.length - 1} />
     </div>
   );
 }

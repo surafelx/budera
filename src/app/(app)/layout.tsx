@@ -3,87 +3,85 @@ import { getDb } from "@/db";
 import { AGENT_IDS, AGENTS, customKey } from "@/agents/registry";
 import { MAX_CUSTOM_AGENTS } from "@/agents/custom";
 import { latestRuns } from "@/agents/runner";
-import { AgentGlyph, STATE_LABEL, agentState, type AgentState } from "@/components/app/AgentGlyph";
-import { Icon } from "@/components/app/Icon";
+import { AccountMenu } from "@/components/app/AccountMenu";
+import { AgentGlyph, STATE_LABEL, agentState } from "@/components/app/AgentGlyph";
+import { CompanySwitcher } from "@/components/app/CompanySwitcher";
 import { NavLink } from "@/components/app/NavLink";
-import { SignOutButton } from "@/components/app/SignOutButton";
 import { listCustomAgents } from "@/lib/agents-data";
+import { MAX_COMPANIES } from "@/lib/companies";
 import { requireCompany } from "@/lib/session";
 import "../app.css";
 
-function AgentLink({ href, agentKey, name, state }: { href: string; agentKey: string; name: string; state: AgentState }) {
-  return (
-    <NavLink href={href} className="nav-agent">
-      <AgentGlyph agentKey={agentKey} name={name} state={state} size={22} />
-      <span className="nav-label">{name}</span>
-      {(state === "working" || state === "failed") && <span className="sr-only"> ({STATE_LABEL[state]})</span>}
-    </NavLink>
-  );
-}
+const DOCK_LIMIT = 8;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, company } = await requireCompany();
+  const { user, company, companies } = await requireCompany();
   const db = await getDb();
   const [customs, latest] = await Promise.all([listCustomAgents(db, company.id), latestRuns(db, company.id)]);
-  const working = Object.values(latest).filter((r) => r.status === "queued" || r.status === "running").length;
+
+  const agents = [
+    ...AGENT_IDS.map((id) => ({ key: id, name: AGENTS[id].name, href: `/agents/${AGENTS[id].slug}` })),
+    ...customs.map((c) => ({ key: customKey(c.id), name: c.name, href: `/agents/custom/${c.id}` })),
+  ];
+  const docked = agents.slice(0, DOCK_LIMIT);
+  const hidden = agents.length - docked.length;
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="sidebar-inner">
-          <div className="sidebar-top">
-            <Link href="/dashboard" className="app-wordmark" aria-label="Budera dashboard">
-              <span className="app-mark" aria-hidden="true" />
-              Budera
-            </Link>
-            <span className={`sys-status mono${working ? " is-working" : ""}`}>
-              <i aria-hidden="true" />
-              {working ? `${working} working` : "Online"}
-            </span>
-          </div>
-          <div className="sidebar-company">
-            <span className="eyebrow">Company</span>
-            <strong>{company.name}</strong>
-          </div>
-          <nav aria-label="App" className="sidebar-nav">
-            <NavLink href="/dashboard">
-              <Icon name="brief" />
+    <div className="app">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <Link href="/dashboard" className="app-wordmark topbar-brand" aria-label="Budera dashboard">
+            <span className="app-mark" aria-hidden="true" />
+            <span className="topbar-brand-text">Budera</span>
+          </Link>
+
+          <CompanySwitcher companies={companies.map((c) => ({ id: c.id, name: c.name, industry: c.industry }))} activeId={company.id} max={MAX_COMPANIES} />
+
+          <nav aria-label="App" className="tabs">
+            <NavLink href="/dashboard" className="tab">
               Brief
             </NavLink>
-            <NavLink href="/tasks">
-              <Icon name="tasks" />
+            <NavLink href="/tasks" className="tab">
               Tasks
             </NavLink>
-            <NavLink href="/agents" exact>
-              <Icon name="agents" />
-              All agents
+            <NavLink href="/agents" className="tab">
+              Agents
             </NavLink>
-            <span className="nav-group">Built in</span>
-            {AGENT_IDS.map((id) => (
-              <AgentLink key={id} href={`/agents/${AGENTS[id].slug}`} agentKey={id} name={AGENTS[id].name} state={agentState(latest[id])} />
-            ))}
-            <span className="nav-group">Your agents</span>
-            {customs.map((c) => (
-              <AgentLink key={c.id} href={`/agents/custom/${c.id}`} agentKey={customKey(c.id)} name={c.name} state={agentState(latest[customKey(c.id)])} />
-            ))}
-            {customs.length < MAX_CUSTOM_AGENTS && (
-              <Link href="/agents/new" className="nav-link nav-new">
-                <Icon name="plus" />
-                New agent
-              </Link>
-            )}
-            <span className="nav-group">Account</span>
-            <NavLink href="/settings">
-              <Icon name="settings" />
+            <NavLink href="/settings" className="tab">
               Settings
             </NavLink>
-            <SignOutButton>
-              <Icon name="signout" />
-            </SignOutButton>
           </nav>
-          <p className="sidebar-user">{user.email}</p>
+
+          <nav aria-label="Agents" className="dock">
+            {docked.map((a) => {
+              const state = agentState(latest[a.key]);
+              return (
+                <NavLink key={a.key} href={a.href} className="dock-link">
+                  <AgentGlyph agentKey={a.key} name={a.name} state={state} size={30} />
+                  <span className="dock-tip" role="tooltip">
+                    {a.name}
+                    <span className="dock-tip-state"> · {STATE_LABEL[state]}</span>
+                  </span>
+                </NavLink>
+              );
+            })}
+            {hidden > 0 && (
+              <Link href="/agents" className="dock-more mono" aria-label={`${hidden} more agents`}>
+                +{hidden}
+              </Link>
+            )}
+            {customs.length < MAX_CUSTOM_AGENTS && (
+              <Link href="/agents/new" className="dock-add" aria-label="Build an agent">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </Link>
+            )}
+          </nav>
+
+          <AccountMenu name={user.name} email={user.email} />
         </div>
-      </aside>
+      </header>
       <main className="main">{children}</main>
     </div>
   );

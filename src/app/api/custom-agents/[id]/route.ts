@@ -5,13 +5,13 @@ import { getDb } from "@/db";
 import { customAgents } from "@/db/schema";
 import { customAgentSchema } from "@/agents/custom";
 import { fieldErrors, jsonError, readJson, sameOrigin } from "@/lib/http";
-import { companyFor, currentUser } from "@/lib/session";
+import { activeCompany, currentUser } from "@/lib/session";
 
 async function ownerCompany(request: Request) {
   if (!sameOrigin(request)) return { error: jsonError("Request blocked.", 403) };
   const user = await currentUser();
   if (!user) return { error: jsonError("Sign in first.", 401) };
-  const company = await companyFor(user.id);
+  const company = await activeCompany();
   if (!company) return { error: jsonError("No company profile yet.", 409) };
   return { company };
 }

@@ -2,7 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "no
 import { promisify } from "node:util";
 import { and, eq, gt } from "drizzle-orm";
 import type { Db } from "@/db";
-import { sessions, users, type User } from "@/db/schema";
+import { companies, sessions, users, type User } from "@/db/schema";
 
 const scrypt = promisify(scryptCb) as (password: string, salt: Buffer, keylen: number, options: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
 const PARAMS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
@@ -41,15 +41,35 @@ export async function createSession(db: Db, userId: string): Promise<{ token: st
   return { token, expiresAt };
 }
 
-export async function userForToken(db: Db, token: string | undefined): Promise<User | null> {
+export async function sessionForToken(db: Db, token: string | undefined): Promise<{ user: User; activeCompanyId: string | null } | null> {
   if (!token) return null;
   const rows = await db
-    .select({ user: users })
+    .select({ user: users, activeCompanyId: sessions.activeCompanyId })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date())))
     .limit(1);
-  return rows[0]?.user ?? null;
+  return rows[0] ?? null;
+}
+
+export async function userForToken(db: Db, token: string | undefined): Promise<User | null> {
+  return (await sessionForToken(db, token))?.user ?? null;
+}
+
+/** Point a session at one of its user's companies. Returns false if the company isn't theirs. */
+export async function setActiveCompany(db: Db, token: string | undefined, companyId: string | null): Promise<boolean> {
+  const session = await sessionForToken(db, token);
+  if (!session || !token) return false;
+  if (companyId) {
+    const [owned] = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(and(eq(companies.id, companyId), eq(companies.ownerId, session.user.id)))
+      .limit(1);
+    if (!owned) return false;
+  }
+  await db.update(sessions).set({ activeCompanyId: companyId }).where(eq(sessions.id, hashToken(token)));
+  return true;
 }
 
 export async function deleteSession(db: Db, token: string | undefined): Promise<void> {

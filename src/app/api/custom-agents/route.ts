@@ -4,13 +4,13 @@ import { getDb } from "@/db";
 import { customAgents } from "@/db/schema";
 import { MAX_CUSTOM_AGENTS, customAgentSchema } from "@/agents/custom";
 import { fieldErrors, jsonError, readJson, sameOrigin } from "@/lib/http";
-import { companyFor, currentUser } from "@/lib/session";
+import { activeCompany, currentUser } from "@/lib/session";
 
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return jsonError("Request blocked.", 403);
   const user = await currentUser();
   if (!user) return jsonError("Sign in first.", 401);
-  const company = await companyFor(user.id);
+  const company = await activeCompany();
   if (!company) return jsonError("Finish your company profile first.", 409);
 
   const parsed = customAgentSchema.safeParse(await readJson(request));

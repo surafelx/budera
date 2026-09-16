@@ -24,6 +24,8 @@ export const sessions = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // The company this browser session is looking at. Owners can have several companies.
+    activeCompanyId: uuid("active_company_id").references(() => companies.id, { onDelete: "set null" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -53,7 +55,7 @@ export const companies = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("companies_owner_idx").on(t.ownerId)],
+  (t) => [index("companies_owner_idx").on(t.ownerId, t.createdAt)],
 );
 
 /** Agents an owner builds in the app. They run on the same engine as the built-in five. */
