@@ -179,8 +179,64 @@
 .settings-bar { position: sticky; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 0; background: linear-gradient(transparent, var(--paper) 30%); }
 .account p { color: var(--text-2); }
 
+/* Agents: shared bits */
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #bf3131; }
+.section-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0 12px; }
+.section-title h2 { font-size: 18px; font-weight: 600; }
+.head-actions { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.agent-tools { font-size: 12px; color: var(--mute); margin-top: 8px; }
+.page-head .eyebrow a { color: inherit; }
+.nav-new { color: var(--signal) !important; }
+.nav-new:hover { background: var(--ink-2); }
+code { font-family: var(--mono); font-size: 0.88em; background: #eef0f5; border-radius: 5px; padding: 1px 5px; }
+
+/* Agent cards */
+.agent-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.agent-card { height: 100%; display: flex; flex-direction: column; gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; text-decoration: none; color: var(--text); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.agent-card:hover { border-color: var(--line-2); box-shadow: var(--shadow); }
+.agent-card strong { font-size: 17px; }
+.agent-card-role { color: var(--text-2); font-size: 14px; }
+.agent-card-tools { font-size: 12px; color: var(--mute); margin-top: auto; padding-top: 8px; }
+.agent-card-when { font-size: 11px; color: var(--mute); }
+.empty-state h3 { font-size: 18px; margin-bottom: 6px; }
+.empty-state .btn { margin-top: 16px; }
+
+/* Dashboard additions */
+.score-summary { font-size: 13px; color: var(--text-2); margin-top: 8px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.build-callout { display: grid; gap: 4px; padding: 18px 20px; border: 1px dashed var(--line-2); border-radius: var(--radius); background: var(--card); text-decoration: none; color: var(--text); }
+.build-callout:hover { border-color: var(--signal); }
+.build-callout span { color: var(--text-2); font-size: 14px; }
+
+/* Builder */
+.builder { display: grid; gap: 18px; }
+.templates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.template { text-align: left; display: grid; gap: 4px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--card); cursor: pointer; }
+.template span { color: var(--text-2); font-size: 14px; }
+.template:hover { border-color: var(--text-2); }
+.template.on { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
+.textarea.instructions { min-height: 180px; }
+.toggles { display: grid; gap: 10px; }
+.toggle-row { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.toggle-row input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); }
+.toggle-row strong { display: block; font-size: 15px; }
+.toggle-row .hint { display: block; margin-top: 2px; }
+.toggle-row.is-off strong { color: var(--text-2); }
+.advanced summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--text-2); margin-bottom: 12px; }
+.danger-zone { border-color: #f1c9c9; }
+.danger-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.report-head.no-score { grid-template-columns: 1fr; }
+
+/* Settings: AI setup */
+.setup { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.setup-row { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; align-items: baseline; font-size: 14px; color: var(--text-2); }
+
 @media (max-width: 1100px) {
   .scores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .templates { grid-template-columns: 1fr; }
+  .setup-row { grid-template-columns: 1fr; gap: 4px; }
 }
 @media (max-width: 900px) {
   .auth { grid-template-columns: 1fr; }

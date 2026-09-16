@@ -8,9 +8,9 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { createPgliteDb } from "../src/db";
-import { agentRuns, companies, tasks, users } from "../src/db/schema";
+import { agentRuns, companies, customAgents, tasks, users } from "../src/db/schema";
 import { createSession, hashPassword } from "../src/lib/auth";
-import type { AgentId } from "../src/agents/registry";
+import { customKey, type AgentId } from "../src/agents/registry";
 import type { AgentOutputs } from "../src/agents/schemas";
 
 if (process.env.DATABASE_URL) {
@@ -139,13 +139,53 @@ const reports: { [K in AgentId]: { output: AgentOutputs[K]; sources: { url: stri
 for (const [agent, r] of Object.entries(reports) as [AgentId, (typeof reports)[AgentId]][]) {
   const [run] = await db
     .insert(agentRuns)
-    .values({ companyId: company.id, agent, status: "succeeded", output: r.output, sources: r.sources, model: "demo-data", createdAt: hoursAgo(r.hours), startedAt: hoursAgo(r.hours), finishedAt: hoursAgo(r.hours - 0.05) })
+    .values({ companyId: company.id, agentKey: agent, status: "succeeded", output: r.output, sources: r.sources, model: "demo-data", createdAt: hoursAgo(r.hours), startedAt: hoursAgo(r.hours), finishedAt: hoursAgo(r.hours - 0.05) })
     .returning();
   await db.insert(tasks).values(
-    (r.output as { tasks: ReturnType<typeof task>[] }).tasks.map((t) => ({ companyId: company.id, runId: run.id, agent, title: t.title, detail: t.detail, priority: t.priority, dueInDays: t.due_in_days, createdAt: hoursAgo(r.hours) })),
+    (r.output as { tasks: ReturnType<typeof task>[] }).tasks.map((t) => ({ companyId: company.id, runId: run.id, agentKey: agent, title: t.title, detail: t.detail, priority: t.priority, dueInDays: t.due_in_days, createdAt: hoursAgo(r.hours) })),
   );
 }
 
+// One agent the owner "built", with a report, so the custom-agent pages have something to show.
+const [pricing] = await db
+  .insert(customAgents)
+  .values({
+    companyId: company.id,
+    name: "Pricing Analyst",
+    role: "Reviews our pricing against the market and suggests changes that protect margin.",
+    instructions: "Find how competitors in our region price comparable coffee, including wholesale tiers. Compare with our prices and recommend changes or tests we could run.",
+    tools: ["web_search", "read_page"],
+    scoring: true,
+    scoreLabel: "Pricing strength",
+    schedule: "weekly",
+    lastScheduledAt: hoursAgo(3),
+  })
+  .returning();
+const pricingKey = customKey(pricing.id);
+const [pricingRun] = await db
+  .insert(agentRuns)
+  .values({
+    companyId: company.id,
+    agentKey: pricingKey,
+    customAgentId: pricing.id,
+    status: "succeeded",
+    model: "demo-data",
+    createdAt: hoursAgo(3),
+    startedAt: hoursAgo(3),
+    finishedAt: hoursAgo(2.95),
+    sources: [{ url: "https://example.com/wholesale-prices", title: "Example source: wholesale coffee price list" }],
+    output: {
+      summary: "Retail bags are priced in line with rivals, but wholesale is 15% below the market for the same quality.",
+      score: { value: 52, rationale: "Healthy retail margin, underpriced wholesale." },
+      findings: [
+        { title: "Wholesale price is below comparable roasters", detail: "Demo data: rivals charge more per kilo for similar single-origin beans.", importance: "high", source_urls: ["https://example.com/wholesale-prices"] },
+        { title: "No volume tiers", detail: "Cafés ordering 20kg pay the same as 2kg buyers, so there's no reason to consolidate orders.", importance: "medium", source_urls: [] },
+      ],
+      tasks: [{ title: "Add a 10kg+ wholesale tier and raise the base rate by 10%", detail: "Announce it to current cafés a month ahead.", priority: "high", due_in_days: 10 }],
+    },
+  })
+  .returning();
+await db.insert(tasks).values({ companyId: company.id, runId: pricingRun.id, agentKey: pricingKey, customAgentId: pricing.id, title: "Add a 10kg+ wholesale tier and raise the base rate by 10%", detail: "Announce it to current cafés a month ahead.", priority: "high", dueInDays: 10, createdAt: hoursAgo(3) });
 const { token } = await createSession(db, user.id);
 console.log(`Demo company seeded.\n  Email:    ${EMAIL}\n  Password: ${password}\n  Session:  ${token}`);
 process.exit(0);

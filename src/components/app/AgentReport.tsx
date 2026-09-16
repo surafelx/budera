@@ -1,6 +1,6 @@
 import type { AgentId } from "@/agents/registry";
-import type { AgentOutputs } from "@/agents/schemas";
-import type { Source } from "@/agents/claude";
+import type { AgentOutputs, CustomOutput } from "@/agents/schemas";
+import type { Source } from "@/tools/meta";
 
 const LevelTag = ({ level, label }: { level: "high" | "medium" | "low"; label?: string }) => (
   <span className={`level-tag level-${level}`}>{label ? `${label}: ${level}` : level}</span>
@@ -19,6 +19,27 @@ function SourceLinks({ urls, sources }: { urls: string[]; sources: Source[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Report body for agents owners build: findings ranked by importance, with sources where research found them. */
+export function CustomReport({ output, sources }: { output: unknown; sources: Source[] }) {
+  const o = output as CustomOutput;
+  if (o.findings.length === 0) return null;
+  return (
+    <section className="panel">
+      <header className="panel-head"><h2>Findings</h2></header>
+      <ol className="report-list">
+        {o.findings.map((f) => (
+          <li key={f.title}>
+            <h3>{f.title}</h3>
+            <p>{f.detail}</p>
+            <p className="report-meta"><LevelTag level={f.importance} label="Importance" /></p>
+            <SourceLinks urls={f.source_urls} sources={sources} />
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

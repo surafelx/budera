@@ -1,18 +1,17 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { ClaudeAgentModel } from "@/agents/claude";
-import { AGENT_IDS } from "@/agents/registry";
+import { LlmAgentModel } from "@/agents/engine";
 import { executeRun, queueRuns } from "@/agents/runner";
 import { jsonError, readJson, sameOrigin } from "@/lib/http";
 import { companyFor, currentUser } from "@/lib/session";
 
-// Agent runs use adaptive thinking and web search; give background work room to finish.
+// Research agents make several model and tool calls; give background work room to finish.
 export const maxDuration = 300;
 
-const bodySchema = z.object({ agents: z.array(z.enum(AGENT_IDS)).min(1).max(AGENT_IDS.length) });
+const bodySchema = z.object({ agents: z.array(z.string().max(60)).min(1).max(20) });
 
-/** Queue one or more agents and run them after the response is sent. The UI polls /api/runs/[id]. */
+/** Queue agents by key ("growth_gps" or "custom:<id>") and run them after the response is sent. */
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return jsonError("Request blocked.", 403);
   const user = await currentUser();
@@ -24,11 +23,14 @@ export async function POST(request: Request) {
   if (!parsed.success) return jsonError("Choose which agents to run.", 422);
 
   const db = await getDb();
-  const runs = await queueRuns(db, company.id, [...new Set(parsed.data.agents)]);
+  const runs = await queueRuns(db, company.id, parsed.data.agents);
+  if (runs.length === 0) {
+    return NextResponse.json({ runs: [], message: "Those agents are already working, or don't exist." }, { status: 200 });
+  }
 
   after(async () => {
-    await Promise.all(runs.map((run) => executeRun(db, run.id, () => new ClaudeAgentModel())));
+    await Promise.all(runs.map((run) => executeRun(db, run.id, () => new LlmAgentModel())));
   });
 
-  return NextResponse.json({ runs: runs.map((r) => ({ id: r.id, agent: r.agent, status: r.status })) }, { status: 202 });
+  return NextResponse.json({ runs: runs.map((r) => ({ id: r.id, agent: r.agentKey, status: r.status })) }, { status: 202 });
 }

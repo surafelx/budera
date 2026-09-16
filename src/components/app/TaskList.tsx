@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AGENTS, type AgentId } from "@/agents/registry";
 
 export type TaskItem = {
   id: string;
-  agent: AgentId;
+  agentName: string;
   title: string;
   detail: string;
   priority: "high" | "medium" | "low";
@@ -51,7 +50,7 @@ export function TaskList({ tasks, showAgent = true, emptyText }: { tasks: TaskIt
               {t.detail && <p className="task-detail">{t.detail}</p>}
               <p className="task-meta mono">
                 <span className={`prio-tag prio-${t.priority}`}>{t.priority}</span>
-                {showAgent && <span>{AGENTS[t.agent].name}</span>}
+                {showAgent && <span>{t.agentName}</span>}
                 <span>{t.dueLabel}</span>
               </p>
             </div>

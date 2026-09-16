@@ -5,7 +5,7 @@ import { getDb } from "@/db";
 import { agentRuns, tasks } from "@/db/schema";
 import { agentBySlug } from "@/agents/registry";
 import { expireStaleRuns } from "@/agents/runner";
-import type { Source } from "@/agents/claude";
+import { TOOL_INFO, type Source } from "@/tools/meta";
 import { AgentReport } from "@/components/app/AgentReport";
 import { RunButton } from "@/components/app/RunButton";
 import { TaskList } from "@/components/app/TaskList";
@@ -26,20 +26,10 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
   const db = await getDb();
   await expireStaleRuns(db, company.id);
 
-  const runs = await db
-    .select()
-    .from(agentRuns)
-    .where(and(eq(agentRuns.companyId, company.id), eq(agentRuns.agent, meta.id)))
-    .orderBy(desc(agentRuns.createdAt))
-    .limit(12);
+  const runs = await db.select().from(agentRuns).where(and(eq(agentRuns.companyId, company.id), eq(agentRuns.agentKey, meta.id))).orderBy(desc(agentRuns.createdAt)).limit(12);
   const latest = runs[0];
   const report = runs.find((r) => r.status === "succeeded");
-  const agentTasks = await db
-    .select()
-    .from(tasks)
-    .where(and(eq(tasks.companyId, company.id), eq(tasks.agent, meta.id)))
-    .orderBy(desc(tasks.createdAt))
-    .limit(30);
+  const agentTasks = await db.select().from(tasks).where(and(eq(tasks.companyId, company.id), eq(tasks.agentKey, meta.id))).orderBy(desc(tasks.createdAt)).limit(30);
   const busy = latest?.status === "queued" || latest?.status === "running";
   const output = report?.output as { summary: string; score: { value: number; rationale: string } } | undefined;
   const sources = (report?.sources ?? []) as Source[];
@@ -48,9 +38,10 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="eyebrow">{meta.role}{meta.usesWeb ? " · searches the web" : ""}</p>
+          <p className="eyebrow">Built in · {meta.role}</p>
           <h1>{meta.name}</h1>
           <p className="page-sub">{meta.watches}</p>
+          <p className="agent-tools mono">{meta.tools.length ? meta.tools.map((t) => TOOL_INFO[t].label).join(" · ") : "Works from your company profile"}</p>
         </div>
         <RunButton agents={[meta.id]} label={report ? "Run again" : `Run ${meta.name}`} initiallyRunning={busy} />
       </header>
@@ -61,21 +52,21 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
         </p>
       )}
 
-      {!report ? (
+      {!report || !output ? (
         <section className="panel empty-state">
           <h2>{busy ? "Working on your first report" : "No report yet"}</h2>
-          <p>{busy ? (meta.usesWeb ? "Searching the web and writing it up. This usually takes two to four minutes." : "This usually takes a minute or two.") : meta.returns}</p>
+          <p>{busy ? (meta.tools.length ? "Researching the web and writing it up. This usually takes two to four minutes." : "This usually takes a minute or two.") : meta.returns}</p>
         </section>
       ) : (
         <>
           <section className="panel report-head">
-            <div className={`big-score band-${scoreBand(output!.score.value)}`}>
-              <span className="big-score-value">{output!.score.value}</span>
+            <div className={`big-score band-${scoreBand(output.score.value)}`}>
+              <span className="big-score-value">{output.score.value}</span>
               <span className="big-score-label">{meta.scoreLabel}</span>
             </div>
             <div className="report-summary">
-              <p className="report-lede">{output!.summary}</p>
-              <p className="muted">{output!.score.rationale}</p>
+              <p className="report-lede">{output.summary}</p>
+              <p className="muted">{output.score.rationale}</p>
               <p className="report-stamp mono">
                 Updated {report.finishedAt ? relativeTime(report.finishedAt) : ""}
                 {sources.length > 0 ? ` · ${sources.length} sources` : ""}
@@ -86,12 +77,14 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
           <AgentReport agent={meta.id} output={report.output} sources={sources} />
 
           <section className="panel">
-            <header className="panel-head"><h2>Tasks from {meta.name}</h2></header>
+            <header className="panel-head">
+              <h2>Tasks from {meta.name}</h2>
+            </header>
             <TaskList
               showAgent={false}
               tasks={[...agentTasks]
                 .sort((a, b) => (a.status === b.status ? byPriorityThenDue(a, b) : a.status === "open" ? -1 : 1))
-                .map((t) => ({ id: t.id, agent: t.agent, title: t.title, detail: t.detail, priority: t.priority, status: t.status, dueLabel: dueLabel(t.createdAt, t.dueInDays, t.status, t.completedAt) }))}
+                .map((t) => ({ id: t.id, agentName: meta.name, title: t.title, detail: t.detail, priority: t.priority, status: t.status, dueLabel: dueLabel(t.createdAt, t.dueInDays, t.status, t.completedAt) }))}
               emptyText="No tasks from this agent."
             />
           </section>
@@ -102,7 +95,11 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
                 <summary>All {sources.length} sources from this run</summary>
                 <ol>
                   {sources.map((s) => (
-                    <li key={s.url}><a href={s.url} target="_blank" rel="noopener noreferrer">{s.title}</a></li>
+                    <li key={s.url}>
+                      <a href={s.url} target="_blank" rel="noopener noreferrer">
+                        {s.title}
+                      </a>
+                    </li>
                   ))}
                 </ol>
               </details>
@@ -113,15 +110,15 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
 
       {runs.length > 0 && (
         <section className="panel">
-          <header className="panel-head"><h2>Run history</h2></header>
+          <header className="panel-head">
+            <h2>Run history</h2>
+          </header>
           <ul className="history">
             {runs.map((r) => (
               <li key={r.id}>
                 <span className={`pill ${r.status === "succeeded" ? "ok" : r.status === "failed" ? "fail" : "busy"}`}>{r.status}</span>
                 <span>{relativeTime(r.createdAt)}</span>
-                <span className="muted">
-                  {r.status === "succeeded" && r.output ? `Score ${(r.output as { score: { value: number } }).score.value}` : r.error ?? ""}
-                </span>
+                <span className="muted">{r.status === "succeeded" && r.output ? `Score ${(r.output as { score: { value: number } }).score.value}` : r.error ?? ""}</span>
               </li>
             ))}
           </ul>

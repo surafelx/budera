@@ -106,6 +106,26 @@ export const operationalRadarSchema = z.object({
   tasks: z.array(task),
 });
 
+/** Output for agents owners build themselves: a summary, findings and tasks, with an optional score. */
+const finding = z.object({
+  title: z.string(),
+  detail: z.string(),
+  importance: level,
+  source_urls: z.array(z.string()).describe("URLs from the research sources only; empty if none"),
+});
+
+export const customScoredSchema = z.object({ summary: z.string(), score, findings: z.array(finding), tasks: z.array(task) });
+export const customPlainSchema = z.object({ summary: z.string(), findings: z.array(finding), tasks: z.array(task) });
+export type CustomOutput = z.infer<typeof customPlainSchema> & { score?: z.infer<typeof score> };
+
+export function normalizeCustomOutput(output: CustomOutput, allowedUrls?: Set<string>): CustomOutput {
+  const o = structuredClone(output);
+  if (o.score) o.score.value = clamp(o.score.value, 0, 100);
+  o.tasks = o.tasks.slice(0, 8).map((t) => ({ ...t, due_in_days: clamp(t.due_in_days, 1, 30) }));
+  o.findings = o.findings.slice(0, 12).map((f) => ({ ...f, source_urls: allowedUrls ? f.source_urls.filter((u) => allowedUrls.has(u)) : [] }));
+  return o;
+}
+
 export const AGENT_SCHEMAS = {
   growth_gps: growthGpsSchema,
   paralegal: paralegalSchema,

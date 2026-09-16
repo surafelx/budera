@@ -1,0 +1,215 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useId, useState } from "react";
+import type { AgentTemplate, CustomAgentInput } from "@/agents/custom";
+import { TOOL_IDS, TOOL_INFO } from "@/tools/meta";
+
+const EMPTY: CustomAgentInput = { name: "", role: "", instructions: "", tools: [], scoring: false, scoreLabel: "", schedule: "manual", model: "" };
+
+const SCHEDULE_TEXT = {
+  manual: { label: "When I run it", hint: "Runs only when you press Run." },
+  daily: { label: "Every day", hint: "Runs once a day, early morning UTC." },
+  weekly: { label: "Every week", hint: "Runs once a week." },
+} as const;
+
+export function AgentBuilder({
+  mode,
+  agentId,
+  initial,
+  templates = [],
+  searchAvailable,
+  schedulingEnabled,
+}: {
+  mode: "create" | "edit";
+  agentId?: string;
+  initial?: CustomAgentInput;
+  templates?: AgentTemplate[];
+  searchAvailable: boolean;
+  schedulingEnabled: boolean;
+}) {
+  const router = useRouter();
+  const uid = useId();
+  const id = (k: string) => `${uid}-${k}`;
+  const [draft, setDraft] = useState<CustomAgentInput>(initial ?? EMPTY);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [alert, setAlert] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [template, setTemplate] = useState("");
+
+  const set = <K extends keyof CustomAgentInput>(key: K, value: CustomAgentInput[K]) => setDraft((d) => ({ ...d, [key]: value }));
+  const cls = (k: string) => `field${errors[k] ? " has-error" : ""}`;
+  const err = (k: string) => errors[k] && <span className="error">{errors[k]}</span>;
+
+  function applyTemplate(t: AgentTemplate) {
+    setTemplate(t.id);
+    setDraft(t.agent);
+    setErrors({});
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setAlert("");
+    try {
+      const res = await fetch(mode === "create" ? "/api/custom-agents" : `/api/custom-agents/${agentId}`, {
+        method: mode === "create" ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const data = (await res.json()) as { error?: string; fields?: Record<string, string>; next?: string };
+      if (!res.ok) {
+        setErrors(data.fields ?? {});
+        setAlert(data.error ?? "Couldn't save the agent. Try again.");
+        return;
+      }
+      router.push(data.next ?? "/agents");
+      router.refresh();
+    } catch {
+      setAlert("Couldn't reach Budera. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="builder" onSubmit={submit} noValidate>
+      {mode === "create" && templates.length > 0 && (
+        <section className="panel">
+          <header className="panel-head">
+            <h2>Start from a template</h2>
+            <p>Pick one to fill in the form, then make it yours. Or start from scratch below.</p>
+          </header>
+          <div className="templates">
+            {templates.map((t) => (
+              <button key={t.id} type="button" className={`template${template === t.id ? " on" : ""}`} aria-pressed={template === t.id} onClick={() => applyTemplate(t)}>
+                <strong>{t.label}</strong>
+                <span>{t.blurb}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="panel">
+        <header className="panel-head">
+          <h2>Who it is</h2>
+        </header>
+        <div className="form-stack">
+          <div className={cls("name")}>
+            <label htmlFor={id("name")}>Name</label>
+            <input id={id("name")} className="input" maxLength={40} placeholder="Pricing Analyst" value={draft.name} onChange={(e) => set("name", e.target.value)} />
+            {err("name")}
+          </div>
+          <div className={cls("role")}>
+            <label htmlFor={id("role")}>Its job, in one sentence</label>
+            <input id={id("role")} className="input" maxLength={160} placeholder="Reviews our pricing against the market and suggests changes." value={draft.role} onChange={(e) => set("role", e.target.value)} />
+            {err("role")}
+          </div>
+          <div className={cls("instructions")}>
+            <label htmlFor={id("instructions")}>Instructions</label>
+            <textarea
+              id={id("instructions")}
+              className="textarea instructions"
+              maxLength={4000}
+              placeholder="What should it look at? How should it judge what it finds? What would a great result look like?"
+              value={draft.instructions}
+              onChange={(e) => set("instructions", e.target.value)}
+            />
+            <span className="hint">
+              The agent always sees your company profile, so you don't need to repeat it. {draft.instructions.length.toLocaleString()} / 4,000
+            </span>
+            {err("instructions")}
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <header className="panel-head">
+          <h2>What it can do</h2>
+          <p>Agents without tools work from your company profile only.</p>
+        </header>
+        <div className="toggles">
+          {TOOL_IDS.map((t) => {
+            const on = draft.tools.includes(t);
+            const unavailable = t === "web_search" && !searchAvailable;
+            return (
+              <label key={t} className={`toggle-row${unavailable ? " is-off" : ""}`}>
+                <input type="checkbox" checked={on} onChange={() => set("tools", on ? draft.tools.filter((x) => x !== t) : [...draft.tools, t])} />
+                <span>
+                  <strong>{TOOL_INFO[t].label}</strong>
+                  <span className="hint">
+                    {TOOL_INFO[t].description}
+                    {unavailable && " Web search isn't configured on this server yet, so the agent will skip it until it is."}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="panel">
+        <header className="panel-head">
+          <h2>How it reports</h2>
+        </header>
+        <div className="form-stack">
+          <label className="toggle-row">
+            <input type="checkbox" checked={draft.scoring} onChange={() => set("scoring", !draft.scoring)} />
+            <span>
+              <strong>Give a score out of 100</strong>
+              <span className="hint">Useful for anything you want to track over time. Scores show on your dashboard.</span>
+            </span>
+          </label>
+          {draft.scoring && (
+            <div className={cls("scoreLabel")}>
+              <label htmlFor={id("scoreLabel")}>What the score measures</label>
+              <input id={id("scoreLabel")} className="input" maxLength={40} placeholder="Pricing strength" value={draft.scoreLabel} onChange={(e) => set("scoreLabel", e.target.value)} />
+              {err("scoreLabel")}
+            </div>
+          )}
+
+          <fieldset className="field choice-field">
+            <legend className="label">When it runs</legend>
+            <div className="choices">
+              {(Object.keys(SCHEDULE_TEXT) as (keyof typeof SCHEDULE_TEXT)[]).map((s) => (
+                <label key={s} className="choice">
+                  <input type="radio" name={id("schedule")} checked={draft.schedule === s} onChange={() => set("schedule", s)} />
+                  <span>{SCHEDULE_TEXT[s].label}</span>
+                </label>
+              ))}
+            </div>
+            <span className="hint">
+              {SCHEDULE_TEXT[draft.schedule].hint}
+              {draft.schedule !== "manual" && !schedulingEnabled && " Scheduling isn't switched on for this server yet, so it will only run when you press Run."}
+            </span>
+          </fieldset>
+
+          <details className="advanced">
+            <summary>Advanced</summary>
+            <div className={cls("model")}>
+              <label htmlFor={id("model")}>Model <span className="optional">optional</span></label>
+              <input id={id("model")} className="input mono" placeholder="Uses the server default" value={draft.model} onChange={(e) => set("model", e.target.value)} spellCheck={false} />
+              <span className="hint">A model name your AI provider accepts, for example a larger model for harder jobs.</span>
+              {err("model")}
+            </div>
+          </details>
+        </div>
+      </section>
+
+      {alert && (
+        <p className="form-alert" role="alert">
+          {alert}
+        </p>
+      )}
+      <div className="settings-bar">
+        <button type="button" className="btn btn-ghost" onClick={() => router.back()} disabled={busy}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={busy}>
+          {busy ? "Saving…" : mode === "create" ? "Create agent" : "Save changes"}
+        </button>
+      </div>
+    </form>
+  );
+}

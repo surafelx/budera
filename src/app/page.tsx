@@ -28,7 +28,11 @@ const BRIEF_TASKS = [
 const FAQ = [
   {
     q: "What does a run actually cost me?",
-    a: "Nothing during early access. Each agent run uses Claude, Anthropic's AI model, and the two research agents also search the web. When paid plans arrive we'll tell you the limits before anything changes.",
+    a: "Nothing during early access. Each agent run uses a large language model, and research agents also search the web. When paid plans arrive we'll tell you the limits before anything changes.",
+  },
+  {
+    q: "Can I make an agent for something specific to my business?",
+    a: "Yes. Describe the job, write its instructions, and choose whether it can search the web and read pages. Start from a template like Pricing Analyst or Funding Scout, run it whenever you like or on a daily or weekly schedule, and its tasks join the same list.",
   },
   {
     q: "Is My Paralegal legal advice?",
@@ -36,11 +40,11 @@ const FAQ = [
   },
   {
     q: "Where does the research come from?",
-    a: "Trend Hawk and Competitor Radar search the live web every time they run and cite their sources, so you can check every claim. The other three work from your company profile.",
+    a: "Trend Hawk, Competitor Radar and any agent you give research tools search the live web and read pages every time they run, and cite their sources so you can check every claim. The others work from your company profile.",
   },
   {
     q: "What happens to my company information?",
-    a: "Your profile is stored in your account and sent to Claude only to write your reports. It isn't sold or shared, and deleting your account deletes it.",
+    a: "Your profile is stored in your account and sent to the AI model only to write your reports. It isn't sold or shared, and deleting your account deletes it.",
   },
   {
     q: "How often should I run the agents?",
@@ -59,6 +63,7 @@ export default function Landing() {
           </Link>
           <nav aria-label="Main" className="l-links">
             <a href="#agents">Agents</a>
+            <a href="#build">Build your own</a>
             <a href="#how">How it works</a>
             <a href="#pricing">Pricing</a>
             <a href="#faq">FAQ</a>
@@ -182,7 +187,7 @@ export default function Landing() {
                   <div className="roster-name">
                     <span className="eyebrow on-ink">{a.role}</span>
                     <h3>{a.name}</h3>
-                    {a.usesWeb && <span className="web-badge mono">Searches the web</span>}
+                    {a.tools.length > 0 && <span className="web-badge mono">Researches the web</span>}
                   </div>
                   <div className="roster-col">
                     <span className="roster-label mono">Watches</span>
@@ -196,6 +201,39 @@ export default function Landing() {
               );
             })}
           </ul>
+        </div>
+      </section>
+
+      <section className="section" id="build">
+        <div className="wrap build-grid">
+          <div className="section-copy">
+            <p className="eyebrow">Build your own</p>
+            <h2>Need a specialist we didn't think of? Build it.</h2>
+            <p>
+              Give an agent a job, write its instructions in plain language, and choose its tools. It reads your company profile, researches
+              the web if you let it, and reports back with findings and tasks, on demand or on a schedule.
+            </p>
+            <Link href="/signup" className="btn btn-primary build-cta">Build an agent</Link>
+          </div>
+          <div className="spec-card" aria-label="Example custom agent">
+            <div className="spec-head">
+              <span className="eyebrow">Custom agent · runs weekly</span>
+              <strong>Funding Scout</strong>
+            </div>
+            <dl>
+              <dt className="mono">Job</dt>
+              <dd>Finds grants, accelerators, competitions and investors we qualify for.</dd>
+              <dt className="mono">Instructions</dt>
+              <dd>Only include opportunities open now or within three months, with deadlines. Explain why we qualify and what the application needs.</dd>
+              <dt className="mono">Tools</dt>
+              <dd>
+                <span className="tool-chip">Search the web</span>
+                <span className="tool-chip">Read web pages</span>
+              </dd>
+              <dt className="mono">Reports</dt>
+              <dd>Findings ranked by importance, with sources, and next-step tasks.</dd>
+            </dl>
+          </div>
         </div>
       </section>
 
@@ -241,7 +279,8 @@ export default function Landing() {
               <span>$0</span> / month
             </p>
             <ul className="ticks">
-              <li>All five agents</li>
+              <li>All five built-in agents</li>
+              <li>Up to 10 agents you build yourself</li>
               <li>Live web research with sources</li>
               <li>Unified task list and score history</li>
               <li>One company profile</li>

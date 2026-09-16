@@ -1,6 +1,5 @@
-import { index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
-export const agentIdEnum = pgEnum("agent_id", ["growth_gps", "paralegal", "trend_hawk", "competitor_radar", "operational_radar"]);
 export const runStatusEnum = pgEnum("run_status", ["queued", "running", "succeeded", "failed"]);
 export const priorityEnum = pgEnum("priority", ["high", "medium", "low"]);
 export const taskStatusEnum = pgEnum("task_status", ["open", "done"]);
@@ -57,6 +56,29 @@ export const companies = pgTable(
   (t) => [uniqueIndex("companies_owner_idx").on(t.ownerId)],
 );
 
+/** Agents an owner builds in the app. They run on the same engine as the built-in five. */
+export const customAgents = pgTable(
+  "custom_agents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    role: text("role").notNull(),
+    instructions: text("instructions").notNull(),
+    tools: jsonb("tools").$type<string[]>().notNull().default([]),
+    scoring: boolean("scoring").notNull().default(false),
+    scoreLabel: text("score_label").notNull().default(""),
+    schedule: text("schedule").notNull().default("manual"),
+    model: text("model").notNull().default(""),
+    lastScheduledAt: timestamp("last_scheduled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("custom_agents_company_idx").on(t.companyId)],
+);
+
 export const agentRuns = pgTable(
   "agent_runs",
   {
@@ -64,7 +86,9 @@ export const agentRuns = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
-    agent: agentIdEnum("agent").notNull(),
+    // A built-in agent id ("growth_gps") or "custom:<custom agent id>".
+    agentKey: text("agent_key").notNull(),
+    customAgentId: uuid("custom_agent_id").references(() => customAgents.id, { onDelete: "cascade" }),
     status: runStatusEnum("status").notNull().default("queued"),
     output: jsonb("output"),
     sources: jsonb("sources").$type<{ url: string; title: string }[]>().notNull().default([]),
@@ -76,7 +100,7 @@ export const agentRuns = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("runs_company_agent_idx").on(t.companyId, t.agent, t.createdAt)],
+  (t) => [index("runs_company_agent_idx").on(t.companyId, t.agentKey, t.createdAt)],
 );
 
 export const tasks = pgTable(
@@ -87,7 +111,8 @@ export const tasks = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     runId: uuid("run_id").references(() => agentRuns.id, { onDelete: "set null" }),
-    agent: agentIdEnum("agent").notNull(),
+    agentKey: text("agent_key").notNull(),
+    customAgentId: uuid("custom_agent_id").references(() => customAgents.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     detail: text("detail").notNull().default(""),
     priority: priorityEnum("priority").notNull().default("medium"),
@@ -102,5 +127,6 @@ export const tasks = pgTable(
 export type User = typeof users.$inferSelect;
 export type Company = typeof companies.$inferSelect;
 export type NewCompany = typeof companies.$inferInsert;
+export type CustomAgent = typeof customAgents.$inferSelect;
 export type AgentRun = typeof agentRuns.$inferSelect;
 export type Task = typeof tasks.$inferSelect;

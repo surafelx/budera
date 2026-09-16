@@ -3,8 +3,8 @@ import Link from "next/link";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { tasks } from "@/db/schema";
-import { AGENT_IDS, AGENTS, agentBySlug } from "@/agents/registry";
 import { TaskList } from "@/components/app/TaskList";
+import { agentNames, allAgentKeys, listCustomAgents } from "@/lib/agents-data";
 import { byPriorityThenDue, dueLabel } from "@/lib/format";
 import { requireCompany } from "@/lib/session";
 
@@ -13,15 +13,18 @@ export const dynamic = "force-dynamic";
 
 export default async function TasksPage({ searchParams }: { searchParams: Promise<{ agent?: string; show?: string }> }) {
   const { company } = await requireCompany();
-  const { agent: agentSlug, show } = await searchParams;
-  const agent = agentSlug ? agentBySlug(agentSlug) : undefined;
+  const { agent: agentParam, show } = await searchParams;
+  const db = await getDb();
+  const customs = await listCustomAgents(db, company.id);
+  const keys = allAgentKeys(customs);
+  const names = agentNames(customs);
+  const agent = agentParam && keys.includes(agentParam) ? agentParam : undefined;
   const showDone = show === "done";
 
-  const db = await getDb();
   const rows = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.companyId, company.id), eq(tasks.status, showDone ? "done" : "open"), agent ? eq(tasks.agent, agent.id) : undefined))
+    .where(and(eq(tasks.companyId, company.id), eq(tasks.status, showDone ? "done" : "open"), agent ? eq(tasks.agentKey, agent) : undefined))
     .orderBy(desc(showDone ? tasks.completedAt : tasks.createdAt))
     .limit(200);
   const list = showDone ? rows : [...rows].sort(byPriorityThenDue);
@@ -46,14 +49,20 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
 
       <nav className="filters" aria-label="Filter tasks">
         <div className="segmented">
-          <Link href={href({ agent: agent?.slug })} className={!showDone ? "on" : ""} aria-current={!showDone ? "page" : undefined}>To do</Link>
-          <Link href={href({ agent: agent?.slug, show: "done" })} className={showDone ? "on" : ""} aria-current={showDone ? "page" : undefined}>Done</Link>
+          <Link href={href({ agent })} className={!showDone ? "on" : ""} aria-current={!showDone ? "page" : undefined}>
+            To do
+          </Link>
+          <Link href={href({ agent, show: "done" })} className={showDone ? "on" : ""} aria-current={showDone ? "page" : undefined}>
+            Done
+          </Link>
         </div>
         <div className="chips">
-          <Link href={href({ show: showDone ? "done" : undefined })} className={!agent ? "on" : ""}>All agents</Link>
-          {AGENT_IDS.map((id) => (
-            <Link key={id} href={href({ agent: AGENTS[id].slug, show: showDone ? "done" : undefined })} className={agent?.id === id ? "on" : ""}>
-              {AGENTS[id].name}
+          <Link href={href({ show: showDone ? "done" : undefined })} className={!agent ? "on" : ""}>
+            All agents
+          </Link>
+          {keys.map((k) => (
+            <Link key={k} href={href({ agent: k, show: showDone ? "done" : undefined })} className={agent === k ? "on" : ""}>
+              {names[k]}
             </Link>
           ))}
         </div>
@@ -61,9 +70,17 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
 
       <section className="panel">
         <TaskList
-          key={`${agent?.id ?? "all"}-${showDone}`}
+          key={`${agent ?? "all"}-${showDone}`}
           showAgent={!agent}
-          tasks={list.map((t) => ({ id: t.id, agent: t.agent, title: t.title, detail: t.detail, priority: t.priority, status: t.status, dueLabel: dueLabel(t.createdAt, t.dueInDays, t.status, t.completedAt) }))}
+          tasks={list.map((t) => ({
+            id: t.id,
+            agentName: names[t.agentKey] ?? "Agent",
+            title: t.title,
+            detail: t.detail,
+            priority: t.priority,
+            status: t.status,
+            dueLabel: dueLabel(t.createdAt, t.dueInDays, t.status, t.completedAt),
+          }))}
           emptyText={showDone ? "Nothing marked done yet." : "No open tasks here. Run an agent to get new ones."}
         />
       </section>

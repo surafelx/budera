@@ -1,5 +1,5 @@
 {
-  "id": "dde1fbed-55fa-48fa-ba97-e60d0c34ffab",
+  "id": "32a1b77d-551a-497e-8e8d-aca9e6c3543b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -21,12 +21,17 @@
           "primaryKey": false,
           "notNull": true
         },
-        "agent": {
-          "name": "agent",
-          "type": "agent_id",
-          "typeSchema": "public",
+        "agent_key": {
+          "name": "agent_key",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "custom_agent_id": {
+          "name": "custom_agent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -104,7 +109,7 @@
               "nulls": "last"
             },
             {
-              "expression": "agent",
+              "expression": "agent_key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -129,6 +134,19 @@
           "tableTo": "companies",
           "columnsFrom": [
             "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "agent_runs_custom_agent_id_custom_agents_id_fk": {
+          "name": "agent_runs_custom_agent_id_custom_agents_id_fk",
+          "tableFrom": "agent_runs",
+          "tableTo": "custom_agents",
+          "columnsFrom": [
+            "custom_agent_id"
           ],
           "columnsTo": [
             "id"
@@ -295,6 +313,135 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.custom_agents": {
+      "name": "custom_agents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "instructions": {
+          "name": "instructions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tools": {
+          "name": "tools",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "scoring": {
+          "name": "scoring",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "score_label": {
+          "name": "score_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "schedule": {
+          "name": "schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "last_scheduled_at": {
+          "name": "last_scheduled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "custom_agents_company_idx": {
+          "name": "custom_agents_company_idx",
+          "columns": [
+            {
+              "expression": "company_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "custom_agents_company_id_companies_id_fk": {
+          "name": "custom_agents_company_id_companies_id_fk",
+          "tableFrom": "custom_agents",
+          "tableTo": "companies",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.sessions": {
       "name": "sessions",
       "schema": "",
@@ -386,12 +533,17 @@
           "primaryKey": false,
           "notNull": false
         },
-        "agent": {
-          "name": "agent",
-          "type": "agent_id",
-          "typeSchema": "public",
+        "agent_key": {
+          "name": "agent_key",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "custom_agent_id": {
+          "name": "custom_agent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "title": {
           "name": "title",
@@ -491,6 +643,19 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
+        },
+        "tasks_custom_agent_id_custom_agents_id_fk": {
+          "name": "tasks_custom_agent_id_custom_agents_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "custom_agents",
+          "columnsFrom": [
+            "custom_agent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -563,17 +728,6 @@
     }
   },
   "enums": {
-    "public.agent_id": {
-      "name": "agent_id",
-      "schema": "public",
-      "values": [
-        "growth_gps",
-        "paralegal",
-        "trend_hawk",
-        "competitor_radar",
-        "operational_radar"
-      ]
-    },
     "public.priority": {
       "name": "priority",
       "schema": "public",

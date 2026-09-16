@@ -1,10 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { createPgliteDb, type Db } from "@/db";
-import { agentRuns, companies, tasks, users, type Company } from "@/db/schema";
-import { AgentError, type AgentModel, type AgentResult } from "@/agents/claude";
-import type { AgentId } from "@/agents/registry";
-import { executeRun, expireStaleRuns, latestRuns, queueRuns } from "@/agents/runner";
+import { agentRuns, companies, customAgents, tasks, users, type Company, type CustomAgent } from "@/db/schema";
+import { AgentError, type AgentModel, type AgentResult, type AgentSpec } from "@/agents/engine";
+import { customKey } from "@/agents/registry";
+import { executeRun, expireStaleRuns, isDue, latestRuns, queueRuns, queueScheduledRuns } from "@/agents/runner";
 import { normalizeOutput } from "@/agents/schemas";
 import { companyBrief } from "@/agents/prompts";
 
@@ -19,13 +19,38 @@ function growthOutput(taskTitles: string[]) {
 }
 
 class FakeModel implements AgentModel {
-  calls: { agent: AgentId; company: Company }[] = [];
+  calls: { spec: AgentSpec; company: Company }[] = [];
   constructor(private result: AgentResult | Error) {}
-  async run(agent: AgentId, company: Company) {
-    this.calls.push({ agent, company });
+  async run(spec: AgentSpec, company: Company) {
+    this.calls.push({ spec, company });
     if (this.result instanceof Error) throw this.result;
     return this.result;
   }
+}
+
+const ok = (output: unknown): AgentResult => ({ output, sources: [], model: "test-model", inputTokens: 1, outputTokens: 1 });
+
+async function makeCompany(db: Db, email: string) {
+  const [u] = await db.insert(users).values({ email, name: "Owner", passwordHash: "x" }).returning();
+  const [c] = await db
+    .insert(companies)
+    .values({
+      ownerId: u.id, name: `Co ${email}`, industry: "Specialty coffee", country: "Ethiopia", stage: "Early revenue", teamSize: "2–5",
+      revenueBand: "Under $10k / month", offering: "Roasted coffee", targetCustomers: "Cafes", competitors: ["Rival"], goals: "Supply 20 cafes",
+    })
+    .returning();
+  return c;
+}
+
+async function makeCustomAgent(db: Db, companyId: string, over: Partial<CustomAgent> = {}) {
+  const [a] = await db
+    .insert(customAgents)
+    .values({
+      companyId, name: "Pricing Analyst", role: "Reviews pricing", instructions: "Compare our prices with the market and suggest changes.",
+      tools: ["web_search"], scoring: true, scoreLabel: "Pricing strength", schedule: "manual", ...over,
+    })
+    .returning();
+  return a;
 }
 
 describe("agent runner", () => {
@@ -37,62 +62,89 @@ describe("agent runner", () => {
   });
 
   beforeEach(async () => {
-    // Deleting users cascades to sessions, companies, runs and tasks.
     await db.delete(users);
-    const [u] = await db.insert(users).values({ email: "owner@kaffa.et", name: "Owner", passwordHash: "x" }).returning();
-    [company] = await db
-      .insert(companies)
-      .values({
-        ownerId: u.id, name: "Kaffa Roasters", industry: "Specialty coffee", country: "Ethiopia", stage: "Early revenue",
-        teamSize: "2–5", revenueBand: "Under $10k / month", offering: "Single-origin roasted coffee", targetCustomers: "Cafes in Addis Ababa",
-        competitors: ["Tomoca"], goals: "Supply 20 cafes and start exporting",
-      })
-      .returning();
+    company = await makeCompany(db, "owner@kaffa.et");
   });
 
-  it("stores the report and replaces only the agent's open tasks", async () => {
+  it("runs a built-in agent and replaces only that agent's open tasks", async () => {
     const [first] = await queueRuns(db, company.id, ["growth_gps"]);
-    await executeRun(db, first.id, () => new FakeModel({ output: growthOutput(["Old A", "Old B"]), sources: [], model: "claude-opus-5", inputTokens: 10, outputTokens: 20 }));
+    await executeRun(db, first.id, () => new FakeModel(ok(growthOutput(["Old A", "Old B"]))));
 
     const [oldA] = await db.select().from(tasks).where(eq(tasks.title, "Old A"));
     await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, oldA.id));
 
     const [second] = await queueRuns(db, company.id, ["growth_gps"]);
-    const model = new FakeModel({ output: growthOutput(["New C"]), sources: [], model: "claude-opus-5", inputTokens: 5, outputTokens: 6 });
+    const model = new FakeModel(ok(growthOutput(["New C"])));
     const done = await executeRun(db, second.id, () => model);
 
     expect(done.status).toBe("succeeded");
-    expect(model.calls[0].company.name).toBe("Kaffa Roasters");
-    const titles = (await db.select().from(tasks)).map((t) => `${t.title}:${t.status}`).sort();
-    expect(titles).toEqual(["New C:open", "Old A:done"]);
+    expect(model.calls[0].spec.key).toBe("growth_gps");
+    expect(model.calls[0].spec.tools).toEqual([]);
+    expect((await db.select().from(tasks)).map((t) => `${t.title}:${t.status}`).sort()).toEqual(["New C:open", "Old A:done"]);
+  });
+
+  it("runs a custom agent with the owner's instructions, tools and scoring", async () => {
+    const agent = await makeCustomAgent(db, company.id);
+    const [run] = await queueRuns(db, company.id, [customKey(agent.id)]);
+    expect(run.customAgentId).toBe(agent.id);
+
+    const model = new FakeModel(
+      ok({ summary: "Prices are low", score: { value: 48, rationale: "Below market" }, findings: [], tasks: [{ title: "Raise the 1kg price", detail: "d", priority: "high", due_in_days: 5 }] }),
+    );
+    const done = await executeRun(db, run.id, () => model);
+
+    expect(done.status).toBe("succeeded");
+    const spec = model.calls[0].spec;
+    expect(spec.name).toBe("Pricing Analyst");
+    expect(spec.tools).toEqual(["web_search"]);
+    expect(spec.system).toContain("Compare our prices with the market");
+    expect(spec.system).toContain("Pricing strength");
+    const [t] = await db.select().from(tasks);
+    expect(t.agentKey).toBe(customKey(agent.id));
+    expect(t.customAgentId).toBe(agent.id);
+  });
+
+  it("ignores unknown keys and custom agents that belong to another company", async () => {
+    const other = await makeCompany(db, "someone@else.co");
+    const theirs = await makeCustomAgent(db, other.id);
+    const mine = await makeCustomAgent(db, company.id, { name: "Mine" });
+    const runs = await queueRuns(db, company.id, ["growth_gps", "not_real", customKey(theirs.id), customKey(mine.id), "custom:../../etc"]);
+    expect(runs.map((r) => r.agentKey).sort()).toEqual([customKey(mine.id), "growth_gps"].sort());
+  });
+
+  it("deleting a custom agent removes its runs and tasks", async () => {
+    const agent = await makeCustomAgent(db, company.id);
+    const [run] = await queueRuns(db, company.id, [customKey(agent.id)]);
+    await executeRun(db, run.id, () => new FakeModel(ok({ summary: "s", score: { value: 50, rationale: "r" }, findings: [], tasks: [{ title: "T", detail: "d", priority: "low", due_in_days: 3 }] })));
+    await db.delete(customAgents).where(eq(customAgents.id, agent.id));
+    expect(await db.select().from(agentRuns)).toHaveLength(0);
+    expect(await db.select().from(tasks)).toHaveLength(0);
   });
 
   it("records a readable error and keeps existing tasks when the model fails", async () => {
-    const [ok] = await queueRuns(db, company.id, ["growth_gps"]);
-    await executeRun(db, ok.id, () => new FakeModel({ output: growthOutput(["Keep me"]), sources: [], model: "m", inputTokens: 1, outputTokens: 1 }));
-
+    const [good] = await queueRuns(db, company.id, ["growth_gps"]);
+    await executeRun(db, good.id, () => new FakeModel(ok(growthOutput(["Keep me"]))));
     const [bad] = await queueRuns(db, company.id, ["growth_gps"]);
-    const failed = await executeRun(db, bad.id, () => new FakeModel(new AgentError("Claude declined to write this report.")));
-
+    const failed = await executeRun(db, bad.id, () => new FakeModel(new AgentError("The model declined.")));
     expect(failed.status).toBe("failed");
-    expect(failed.error).toBe("Claude declined to write this report.");
+    expect(failed.error).toBe("The model declined.");
     expect((await db.select().from(tasks)).map((t) => t.title)).toEqual(["Keep me"]);
   });
 
-  it("explains a missing API key instead of crashing", async () => {
+  it("explains missing configuration instead of crashing", async () => {
     const [run] = await queueRuns(db, company.id, ["paralegal"]);
     const failed = await executeRun(db, run.id, () => {
-      throw new AgentError("No Claude API key is configured. Add ANTHROPIC_API_KEY to the server environment and restart.");
+      throw new AgentError("No AI model is configured. Set LLM_MODEL.");
     });
     expect(failed.status).toBe("failed");
-    expect(failed.error).toMatch(/ANTHROPIC_API_KEY/);
+    expect(failed.error).toMatch(/LLM_MODEL/);
   });
 
   it("doesn't queue a second run for an agent that's already working", async () => {
     const first = await queueRuns(db, company.id, ["trend_hawk", "competitor_radar"]);
     const again = await queueRuns(db, company.id, ["trend_hawk", "operational_radar"]);
-    expect(first.map((r) => r.agent).sort()).toEqual(["competitor_radar", "trend_hawk"]);
-    expect(again.map((r) => r.agent)).toEqual(["operational_radar"]);
+    expect(first.map((r) => r.agentKey).sort()).toEqual(["competitor_radar", "trend_hawk"]);
+    expect(again.map((r) => r.agentKey)).toEqual(["operational_radar"]);
   });
 
   it("fails runs that got stuck", async () => {
@@ -100,6 +152,32 @@ describe("agent runner", () => {
     await db.update(agentRuns).set({ createdAt: new Date(Date.now() - 60 * 60 * 1000) }).where(eq(agentRuns.id, run.id));
     await expireStaleRuns(db, company.id);
     expect((await latestRuns(db, company.id)).operational_radar?.status).toBe("failed");
+  });
+
+  it("queues due scheduled agents once and stamps them", async () => {
+    const now = new Date("2026-09-20T06:00:00Z");
+    const daily = await makeCustomAgent(db, company.id, { name: "Daily", schedule: "daily", lastScheduledAt: new Date("2026-09-19T06:00:00Z") });
+    await makeCustomAgent(db, company.id, { name: "Weekly recent", schedule: "weekly", lastScheduledAt: new Date("2026-09-17T06:00:00Z") });
+    await makeCustomAgent(db, company.id, { name: "Manual", schedule: "manual" });
+
+    const runs = await queueScheduledRuns(db, now);
+    expect(runs.map((r) => r.customAgentId)).toEqual([daily.id]);
+    expect(await queueScheduledRuns(db, now)).toHaveLength(0);
+  });
+});
+
+describe("schedule rules", () => {
+  const base = { createdAt: new Date("2026-01-01") };
+  it("treats never-run scheduled agents as due and manual ones as never due", () => {
+    expect(isDue({ ...base, schedule: "weekly", lastScheduledAt: null })).toBe(true);
+    expect(isDue({ ...base, schedule: "manual", lastScheduledAt: null })).toBe(false);
+  });
+  it("allows an hour of slack so a daily cron doesn't slip a day", () => {
+    const now = new Date("2026-09-20T06:00:00Z");
+    expect(isDue({ ...base, schedule: "daily", lastScheduledAt: new Date("2026-09-19T06:30:00Z") }, now)).toBe(true);
+    expect(isDue({ ...base, schedule: "daily", lastScheduledAt: new Date("2026-09-19T12:00:00Z") }, now)).toBe(false);
+    expect(isDue({ ...base, schedule: "weekly", lastScheduledAt: new Date("2026-09-14T06:00:00Z") }, now)).toBe(false);
+    expect(isDue({ ...base, schedule: "weekly", lastScheduledAt: new Date("2026-09-13T06:00:00Z") }, now)).toBe(true);
   });
 });
 
