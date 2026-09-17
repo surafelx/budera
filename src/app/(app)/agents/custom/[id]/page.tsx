@@ -6,12 +6,15 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import { agentRuns, customAgents, tasks } from "@/db/schema";
-import { customKey } from "@/agents/registry";
+import { customKey, customNeeds, customWorkflow } from "@/agents/registry";
 import { expireStaleRuns } from "@/agents/runner";
 import type { CustomOutput } from "@/agents/schemas";
 import { TOOL_INFO, type Source, type ToolId } from "@/tools/meta";
 import { CustomReport } from "@/components/app/AgentReport";
 import { AgentGlyph, agentState } from "@/components/app/AgentGlyph";
+import { AgentPlaybook } from "@/components/app/AgentPlaybook";
+import { serviceStates } from "@/connections/status";
+import { listConnections } from "@/connections/store";
 import { RunButton } from "@/components/app/RunButton";
 import { TaskList } from "@/components/app/TaskList";
 import { byPriorityThenDue, dueLabel, relativeTime, scoreBand } from "@/lib/format";
@@ -39,6 +42,7 @@ export default async function CustomAgentPage({ params }: { params: Promise<{ id
   const busy = latest?.status === "queued" || latest?.status === "running";
   const output = report?.output as CustomOutput | undefined;
   const sources = (report?.sources ?? []) as Source[];
+  const states = serviceStates(await listConnections(db, company.id));
 
   return (
     <div className="page">
@@ -136,6 +140,8 @@ export default async function CustomAgentPage({ params }: { params: Promise<{ id
           )}
         </>
       )}
+
+      <AgentPlaybook name={agent.name} steps={customWorkflow(agent)} needs={customNeeds(agent.tools)} states={states} />
 
       {runs.length > 0 && (
         <section className="panel">

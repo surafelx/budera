@@ -9,6 +9,9 @@ import { expireStaleRuns } from "@/agents/runner";
 import { TOOL_INFO, type Source } from "@/tools/meta";
 import { AgentReport } from "@/components/app/AgentReport";
 import { AgentGlyph, agentState } from "@/components/app/AgentGlyph";
+import { AgentPlaybook } from "@/components/app/AgentPlaybook";
+import { serviceStates } from "@/connections/status";
+import { listConnections } from "@/connections/store";
 import { RunButton } from "@/components/app/RunButton";
 import { TaskList } from "@/components/app/TaskList";
 import { byPriorityThenDue, dueLabel, relativeTime, scoreBand } from "@/lib/format";
@@ -35,6 +38,7 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
   const busy = latest?.status === "queued" || latest?.status === "running";
   const output = report?.output as { summary: string; score: { value: number; rationale: string } } | undefined;
   const sources = (report?.sources ?? []) as Source[];
+  const states = serviceStates(await listConnections(db, company.id));
 
   return (
     <div className="page">
@@ -114,6 +118,8 @@ export default async function AgentPage({ params }: { params: Promise<{ slug: st
           )}
         </>
       )}
+
+      <AgentPlaybook name={meta.name} steps={meta.workflow} needs={meta.needs} states={states} />
 
       {runs.length > 0 && (
         <section className="panel">

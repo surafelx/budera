@@ -9,6 +9,8 @@ import { MAX_CUSTOM_AGENTS } from "@/agents/custom";
 import { expireStaleRuns, latestRuns, latestSuccessfulRuns } from "@/agents/runner";
 import { AgentGlyph, agentHue, agentState } from "@/components/app/AgentGlyph";
 import { RunButton } from "@/components/app/RunButton";
+import { isUsable, serviceStates } from "@/connections/status";
+import { listConnections } from "@/connections/store";
 import { TaskList } from "@/components/app/TaskList";
 import { agentHref, agentNames, allAgentKeys, listCustomAgents } from "@/lib/agents-data";
 import { byPriorityThenDue, dueLabel, relativeTime, scoreBand } from "@/lib/format";
@@ -55,12 +57,14 @@ export default async function DashboardPage() {
   const { user, company } = await requireCompany();
   const db = await getDb();
   await expireStaleRuns(db, company.id);
-  const [latest, reports, openTasks, customs] = await Promise.all([
+  const [latest, reports, openTasks, customs, views] = await Promise.all([
     latestRuns(db, company.id),
     latestSuccessfulRuns(db, company.id),
     db.select().from(tasks).where(and(eq(tasks.companyId, company.id), eq(tasks.status, "open"))).orderBy(desc(tasks.createdAt)),
     listCustomAgents(db, company.id),
+    listConnections(db, company.id),
   ]);
+  const modelReady = isUsable(serviceStates(views).ai_model);
 
   const keys = allAgentKeys(customs);
   const names = agentNames(customs);
@@ -89,6 +93,13 @@ export default async function DashboardPage() {
         </div>
         <RunButton agents={keys} label={hasReports ? "Run all agents again" : "Run all agents"} initiallyRunning={anyRunning} />
       </header>
+
+      {!modelReady && (
+        <Link href="/connections#ai_model" className="build-callout setup-callout">
+          <strong>Connect an AI model to run your agents.</strong>
+          <span>Add an API key for OpenAI, OpenRouter, Groq or any OpenAI-compatible provider. Then connect web search and your business data so reports use real numbers.</span>
+        </Link>
+      )}
 
       <section className="fleet" aria-label="Agent status">
         <p className={`fleet-live mono ${fleetState}`} role="status">

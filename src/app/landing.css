@@ -99,6 +99,9 @@
 .roster-name { position: relative; display: flex; gap: 16px; align-items: flex-start; }
 .roster-name h3 { font-size: 26px; margin-top: 6px; }
 .web-badge { display: inline-block; margin-top: 12px; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--live); border: 1px solid rgba(61, 220, 151, 0.35); border-radius: 999px; padding: 3px 10px; }
+.web-badge + .web-badge { margin-left: 6px; }
+.data-badge { color: #ffb08c; border-color: rgba(255, 106, 43, 0.4); }
+.demo-error { flex-basis: 100%; font-size: 13px; color: var(--danger-ink); }
 .roster-label { display: block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--signal); margin-bottom: 6px; }
 .roster-col p { color: var(--on-ink-2); }
 

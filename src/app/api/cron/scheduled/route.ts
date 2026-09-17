@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { getDb } from "@/db";
-import { LlmAgentModel } from "@/agents/engine";
+import { agentModelFor } from "@/connections/agent-model";
 import { executeRun, queueScheduledRuns } from "@/agents/runner";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const db = await getDb();
   const runs = await queueScheduledRuns(db);
   after(async () => {
-    await Promise.all(runs.map((run) => executeRun(db, run.id, () => new LlmAgentModel())));
+    await Promise.all(runs.map((run) => executeRun(db, run.id, (companyId) => agentModelFor(db, companyId))));
   });
   return NextResponse.json({ queued: runs.length });
 }

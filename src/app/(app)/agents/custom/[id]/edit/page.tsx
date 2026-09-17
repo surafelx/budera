@@ -8,6 +8,8 @@ import { customAgents } from "@/db/schema";
 import { SCHEDULES, type Schedule } from "@/agents/custom";
 import { TOOL_IDS, type ToolId } from "@/tools/meta";
 import { AgentBuilder } from "@/components/agents/AgentBuilder";
+import { serviceStates, usableTools } from "@/connections/status";
+import { listConnections } from "@/connections/store";
 import { DeleteAgentButton } from "@/components/agents/DeleteAgentButton";
 import { describeSetup } from "@/llm/config";
 import { requireCompany } from "@/lib/session";
@@ -38,7 +40,7 @@ export default async function EditAgentPage({ params }: { params: Promise<{ id: 
       <AgentBuilder
         mode="edit"
         agentId={agent.id}
-        searchAvailable={Boolean(setup.searchProvider)}
+        usableTools={usableTools(serviceStates(await listConnections(await getDb(), company.id)))}
         schedulingEnabled={setup.schedulingEnabled}
         initial={{
           name: agent.name,

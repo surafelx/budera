@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import type { AgentTemplate, CustomAgentInput } from "@/agents/custom";
-import { TOOL_IDS, TOOL_INFO } from "@/tools/meta";
+import { SERVICES } from "@/connections/catalog";
+import { TOOL_IDS, TOOL_INFO, type ToolId } from "@/tools/meta";
 import { AgentGlyph } from "@/components/app/AgentGlyph";
 
 const EMPTY: CustomAgentInput = { name: "", role: "", instructions: "", tools: [], scoring: false, scoreLabel: "", schedule: "manual", model: "" };
@@ -19,14 +20,14 @@ export function AgentBuilder({
   agentId,
   initial,
   templates = [],
-  searchAvailable,
+  usableTools,
   schedulingEnabled,
 }: {
   mode: "create" | "edit";
   agentId?: string;
   initial?: CustomAgentInput;
   templates?: AgentTemplate[];
-  searchAvailable: boolean;
+  usableTools: ToolId[];
   schedulingEnabled: boolean;
 }) {
   const router = useRouter();
@@ -144,7 +145,8 @@ export function AgentBuilder({
           <div className="toggles">
             {TOOL_IDS.map((t) => {
               const on = draft.tools.includes(t);
-              const unavailable = t === "web_search" && !searchAvailable;
+              const unavailable = !usableTools.includes(t);
+            const service = TOOL_INFO[t].service;
               return (
                 <label key={t} className={`toggle-row${unavailable ? " is-off" : ""}`}>
                   <input type="checkbox" className="switch" checked={on} onChange={() => set("tools", on ? draft.tools.filter((x) => x !== t) : [...draft.tools, t])} />
@@ -152,7 +154,15 @@ export function AgentBuilder({
                     <strong>{TOOL_INFO[t].label}</strong>
                     <span className="hint">
                       {TOOL_INFO[t].description}
-                      {unavailable && " Web search isn't configured on this server yet, so the agent will skip it until it is."}
+                      {unavailable && service && (
+                      <>
+                        {" "}
+                        <a href={`/connections#${service}`} className="tool-link">
+                          Connect {SERVICES[service].name}
+                        </a>{" "}
+                        to use this. Until then the agent skips it.
+                      </>
+                    )}
                     </span>
                   </span>
                 </label>

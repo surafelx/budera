@@ -3,7 +3,8 @@ import type { Company, CustomAgent } from "@/db/schema";
 import { LlmError, OpenAICompatibleClient, type ChatMessage, type LlmClient } from "@/llm/client";
 import { ConfigError, readLlmConfig, type LlmConfig } from "@/llm/config";
 import { StructuredOutputError, generateStructured } from "@/llm/structured";
-import { TOOL_DEFINITIONS, availableTools, executeTool, type Source, type ToolContext, type ToolId } from "@/tools";
+import { SERVICES } from "@/connections/catalog";
+import { TOOL_DEFINITIONS, TOOL_IDS, TOOL_INFO, availableTools, executeTool, type Source, type ToolContext, type ToolId } from "@/tools";
 import { searchProviderFromEnv } from "@/tools/search";
 import { AGENTS, customKey, type AgentId } from "./registry";
 import { RESEARCH_BRIEF, RESEARCH_PHASE, ROLE, SHARED, companyBrief, customSystemPrompt, todayLine } from "./prompts";
@@ -41,7 +42,7 @@ export function customSpec(agent: CustomAgent): AgentSpec {
     name: agent.name,
     system: customSystemPrompt(agent),
     schema: agent.scoring ? customScoredSchema : customPlainSchema,
-    tools: agent.tools.filter((t): t is ToolId => t === "web_search" || t === "read_page"),
+    tools: agent.tools.filter((t): t is ToolId => (TOOL_IDS as readonly string[]).includes(t)),
     researchBrief: `Research what you need to do this job well: ${agent.role}`,
     model: agent.model || undefined,
     finalize: (output, allowed) => normalizeCustomOutput(output as CustomOutput, allowed),
@@ -67,22 +68,31 @@ export function friendlyError(error: unknown): string {
   if (error instanceof LlmError) {
     switch (error.kind) {
       case "auth":
-        return "The AI provider rejected the API key. Check LLM_API_KEY.";
+        return "The AI provider rejected the API key. Check the AI model connection (or LLM_API_KEY on the server).";
       case "rate_limit":
         return "The AI provider is rate-limiting requests. Try this agent again in a minute.";
       case "not_found":
-        return "The AI provider doesn't recognise this model. Check LLM_MODEL or the agent's model setting.";
+        return "The AI provider doesn't recognise this model. Check the model name in Connections, or the agent's model setting.";
       case "bad_request":
         return `The AI provider rejected the request: ${error.message}`;
       case "timeout":
         return "The AI provider took too long to respond. Try again.";
       case "network":
-        return "Couldn't reach the AI provider. Check LLM_BASE_URL and the server's connection.";
+        return "Couldn't reach the AI provider. Check the base URL in Connections (or LLM_BASE_URL on the server).";
       default:
         return "The AI provider had a problem. Try again shortly.";
     }
   }
   return "Something went wrong while running this agent. Try again.";
+}
+
+/** Tells the model which of its tools weren't connected, so the report can say what would sharpen it. */
+export function missingToolsNote(wanted: readonly ToolId[], usable: readonly ToolId[]): string {
+  const missing = wanted.filter((t) => !usable.includes(t) && TOOL_INFO[t].service);
+  if (missing.length === 0) return "";
+  const names = [...new Set(missing.map((t) => SERVICES[TOOL_INFO[t].service!].name))];
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `These sources aren't connected for this company, so you couldn't use them: ${list}. Work from what you have, and mention in the summary that connecting ${list} would make this report more precise.`;
 }
 
 const MAX_RESEARCH_STEPS = 8;
@@ -107,16 +117,13 @@ export class LlmAgentModel implements AgentModel {
 
     if (spec.tools.length > 0) {
       const usable = availableTools(spec.tools, this.tools);
-      if (usable.length === 0) {
-        researchNote = "Web research isn't available on this server (no search provider is configured), so this report is based on the company profile only. Say so in the summary.";
-      } else {
+      researchNote = missingToolsNote(spec.tools, usable);
+      // read_page on its own can't find anything to read, so it doesn't justify a research phase.
+      if (usable.some((t) => t !== "read_page")) {
         const research = await this.research(spec, company, usable, sources);
         notes = research.notes;
         inputTokens += research.inputTokens;
         outputTokens += research.outputTokens;
-        if (!usable.includes("web_search") && spec.tools.includes("web_search")) {
-          researchNote = "Web search isn't configured on this server; only pages you could open directly were available.";
-        }
       }
     }
 

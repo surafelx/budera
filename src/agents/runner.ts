@@ -1,6 +1,7 @@
-import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, notLike } from "drizzle-orm";
 import type { Db } from "@/db";
-import { agentRuns, companies, customAgents, tasks, type AgentRun, type CustomAgent } from "@/db/schema";
+import { agentRuns, companies, customAgents, tasks, users, type AgentRun, type CustomAgent } from "@/db/schema";
+import { DEMO_EMAIL_DOMAIN } from "@/lib/demo";
 import { AgentError, builtInSpec, customSpec, friendlyError, type AgentModel } from "./engine";
 import { customIdFromKey, customKey, isBuiltInKey } from "./registry";
 import type { AgentTask } from "./schemas";
@@ -35,7 +36,7 @@ export async function queueRuns(db: Db, companyId: string, keys: string[]): Prom
     .returning();
 }
 
-export async function executeRun(db: Db, runId: string, makeModel: () => AgentModel): Promise<AgentRun> {
+export async function executeRun(db: Db, runId: string, makeModel: (companyId: string) => AgentModel | Promise<AgentModel>): Promise<AgentRun> {
   const [run] = await db
     .update(agentRuns)
     .set({ status: "running", startedAt: new Date(), error: null })
@@ -62,7 +63,7 @@ export async function executeRun(db: Db, runId: string, makeModel: () => AgentMo
       spec = customSpec(agent);
     }
 
-    const result = await makeModel().run(spec, company);
+    const result = await (await makeModel(company.id)).run(spec, company);
     const newTasks = (result.output as { tasks: AgentTask[] }).tasks;
 
     return await db.transaction(async (tx) => {
@@ -149,7 +150,16 @@ export function isDue(agent: Pick<CustomAgent, "schedule" | "lastScheduledAt" | 
 
 /** Queue every due scheduled agent (across all companies) and stamp when it was scheduled. */
 export async function queueScheduledRuns(db: Db, now = new Date(), limit = 25): Promise<AgentRun[]> {
-  const candidates = await db.select().from(customAgents).where(inArray(customAgents.schedule, ["daily", "weekly"])).limit(500);
+  // Demo workspaces are sample data; their scheduled agents never run.
+  const candidates = (
+    await db
+      .select({ agent: customAgents })
+      .from(customAgents)
+      .innerJoin(companies, eq(companies.id, customAgents.companyId))
+      .innerJoin(users, eq(users.id, companies.ownerId))
+      .where(and(inArray(customAgents.schedule, ["daily", "weekly"]), notLike(users.email, `%@${DEMO_EMAIL_DOMAIN}`)))
+      .limit(500)
+  ).map((r) => r.agent);
   const due = candidates.filter((a) => isDue(a, now)).slice(0, limit);
   const runs: AgentRun[] = [];
   for (const agent of due) {

@@ -18,13 +18,16 @@ export const ROLE: Record<AgentId, string> = {
 };
 
 export const RESEARCH_BRIEF: Partial<Record<AgentId, string>> = {
+  growth_gps: `Pull this company's real numbers from every connected data tool: revenue and its trend, refunds, paying and repeat customers, orders and average order value, and traffic by channel. Use a 90-day window, and a longer one if you need to see a trend. Note what the numbers say about growth and where they contradict the profile.`,
+  paralegal: `Research the legal and regulatory requirements for this kind of business in its jurisdiction. Prefer official sources: government portals, tax authorities, company registries and sector regulators. Look for registration, tax (including VAT or sales tax thresholds), licences and permits, employment, data protection and consumer rules, and note the dates of the pages you use.`,
+  operational_radar: `Pull this company's operating signals from every connected data tool: failed payments, refunds, unfulfilled orders and fulfilment times. Use a 90-day window. Note where the numbers point to process problems.`,
   trend_hawk: `Research current trends, news, launches, funding, regulation and customer-behaviour shifts relevant to this company's industry, customers and region. Prefer sources from the last 12 months.`,
   competitor_radar: `Research this company's competitors. Look up each named competitor and find other credible ones serving the same customers in the same region. For each, find positioning, public pricing, notable strengths and weaknesses, and recent moves such as launches, funding or price changes.`,
 };
 
 export const RESEARCH_PHASE = `You are in the research phase. Use the tools available to gather evidence for your report: search with focused queries, open the most useful pages, and search again to fill gaps. Stop when you have enough to write a well-supported report, or after about eight tool calls.
 
-When you are done, reply without calling a tool. Write concise research notes: each finding on its own line, with its date where known and the URL it came from. Only cite URLs that appeared in your tool results.`;
+When you are done, reply without calling a tool. Write concise research notes: each finding on its own line, with its date where known and the URL it came from. Only cite URLs that appeared in your tool results. Figures from the company's own connected tools (Stripe, Shopify, Google Analytics) are first-party data: name the tool instead of a URL.`;
 
 export function customSystemPrompt(agent: { name: string; role: string; instructions: string; scoring: boolean; scoreLabel: string }): string {
   const scoring = agent.scoring

@@ -108,12 +108,26 @@ describe("research loop", () => {
     expect(result.sources.map((s) => s.url)).toEqual(["https://news.example/coffee"]);
   });
 
-  it("skips research and says so when no search provider is configured", async () => {
+  it("skips research and names what to connect when search isn't available", async () => {
     const client = new ScriptedClient([reply({ content: JSON.stringify({ summary: "s", findings: [], tasks: [] }) })]);
     const model = new LlmAgentModel({ client, config, tools: { search: null } });
-    await model.run({ ...customSpec(customAgent), tools: ["web_search"] }, company);
+    await model.run(customSpec(customAgent), company);
     expect(client.requests).toHaveLength(1);
-    expect(client.requests[0].messages[1].content).toMatch(/Web research isn't available/);
+    expect(client.requests[0].messages[1].content).toMatch(/aren't connected for this company.*Web search/);
+  });
+
+  it("uses connected business data as tools and lists the ones that aren't connected", async () => {
+    const stripe = { summary: async (days: number) => `Stripe, last ${days} days: 40 payments`, test: async () => "ok" };
+    const client = new ScriptedClient([
+      reply({ toolCalls: [{ id: "c1", type: "function", function: { name: "stripe_revenue", arguments: '{"days":90}' } }] }),
+      reply({ content: "Revenue: 40 payments (Stripe)" }),
+      reply({ content: JSON.stringify({ summary: "s", findings: [], tasks: [] }) }),
+    ]);
+    const model = new LlmAgentModel({ client, config, tools: { search: null, data: { stripe_revenue: stripe } } });
+    await model.run({ ...customSpec(customAgent), tools: ["stripe_revenue", "shopify_sales"] }, company);
+    expect(client.requests[0].tools?.map((t) => t.function.name)).toEqual(["stripe_revenue"]);
+    expect(client.requests[1].messages.at(-1)).toMatchObject({ role: "tool", content: "Stripe, last 90 days: 40 payments" });
+    expect(client.requests[2].messages[1].content).toMatch(/connecting Shopify would/);
   });
 });
 

@@ -6,9 +6,11 @@ import { latestRuns } from "@/agents/runner";
 import { AccountMenu } from "@/components/app/AccountMenu";
 import { AgentGlyph, STATE_LABEL, agentState } from "@/components/app/AgentGlyph";
 import { CompanySwitcher } from "@/components/app/CompanySwitcher";
+import { LeaveDemoButton } from "@/components/app/LeaveDemoButton";
 import { NavLink } from "@/components/app/NavLink";
 import { listCustomAgents } from "@/lib/agents-data";
 import { MAX_COMPANIES } from "@/lib/companies";
+import { isDemoUser } from "@/lib/demo";
 import { requireCompany } from "@/lib/session";
 import "../app.css";
 
@@ -47,6 +49,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <NavLink href="/agents" className="tab">
               Agents
             </NavLink>
+            <NavLink href="/connections" className="tab">
+              Connections
+            </NavLink>
             <NavLink href="/settings" className="tab">
               Settings
             </NavLink>
@@ -82,6 +87,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <AccountMenu name={user.name} email={user.email} />
         </div>
       </header>
+      {isDemoUser(user) && (
+        <div className="demo-banner" role="note">
+          <p>
+            <strong>You're exploring a demo workspace.</strong> Everything here is sample data for two fictional companies. Agents don't run and connections can't be changed.
+          </p>
+          <LeaveDemoButton />
+        </div>
+      )}
       <main className="main">{children}</main>
     </div>
   );

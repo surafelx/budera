@@ -79,7 +79,7 @@ describe("agent runner", () => {
 
     expect(done.status).toBe("succeeded");
     expect(model.calls[0].spec.key).toBe("growth_gps");
-    expect(model.calls[0].spec.tools).toEqual([]);
+    expect(model.calls[0].spec.tools).toEqual(["stripe_revenue", "shopify_sales", "analytics_traffic"]);
     expect((await db.select().from(tasks)).map((t) => `${t.title}:${t.status}`).sort()).toEqual(["New C:open", "Old A:done"]);
   });
 

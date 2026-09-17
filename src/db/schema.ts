@@ -58,6 +58,31 @@ export const companies = pgTable(
   (t) => [index("companies_owner_idx").on(t.ownerId, t.createdAt)],
 );
 
+/**
+ * Services a company connects for its agents: its AI model, web search and business data. Non-secret settings live in
+ * `config`; API keys and tokens are encrypted into `secrets` and never sent back to the browser.
+ */
+export const connections = pgTable(
+  "connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    service: text("service").notNull(),
+    config: jsonb("config").$type<Record<string, string>>().notNull().default({}),
+    secrets: text("secrets"),
+    secretHints: jsonb("secret_hints").$type<Record<string, string>>().notNull().default({}),
+    // untested | ok | error | demo (a sample connection in the demo workspace, never used for real calls)
+    status: text("status").notNull().default("untested"),
+    statusMessage: text("status_message").notNull().default(""),
+    checkedAt: timestamp("checked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("connections_company_service_idx").on(t.companyId, t.service)],
+);
+
 /** Agents an owner builds in the app. They run on the same engine as the built-in five. */
 export const customAgents = pgTable(
   "custom_agents",
@@ -132,3 +157,4 @@ export type NewCompany = typeof companies.$inferInsert;
 export type CustomAgent = typeof customAgents.$inferSelect;
 export type AgentRun = typeof agentRuns.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type Connection = typeof connections.$inferSelect;

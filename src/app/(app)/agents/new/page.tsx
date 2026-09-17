@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getDb } from "@/db";
 import { MAX_CUSTOM_AGENTS, TEMPLATES } from "@/agents/custom";
 import { AgentBuilder } from "@/components/agents/AgentBuilder";
+import { serviceStates, usableTools } from "@/connections/status";
+import { listConnections } from "@/connections/store";
 import { listCustomAgents } from "@/lib/agents-data";
 import { describeSetup } from "@/llm/config";
 import { requireCompany } from "@/lib/session";
@@ -31,7 +33,7 @@ export default async function NewAgentPage() {
           You already have {MAX_CUSTOM_AGENTS} custom agents. Delete one to build another.
         </p>
       ) : (
-        <AgentBuilder mode="create" templates={TEMPLATES} searchAvailable={Boolean(setup.searchProvider)} schedulingEnabled={setup.schedulingEnabled} />
+        <AgentBuilder mode="create" templates={TEMPLATES} usableTools={usableTools(serviceStates(await listConnections(await getDb(), company.id)))} schedulingEnabled={setup.schedulingEnabled} />
       )}
     </div>
   );

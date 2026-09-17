@@ -1,8 +1,9 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/db";
-import { LlmAgentModel } from "@/agents/engine";
+import { agentModelFor } from "@/connections/agent-model";
 import { executeRun, queueRuns } from "@/agents/runner";
+import { DEMO_READ_ONLY, isDemoUser } from "@/lib/demo";
 import { jsonError, readJson, sameOrigin } from "@/lib/http";
 import { activeCompany, currentUser } from "@/lib/session";
 
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
   if (!sameOrigin(request)) return jsonError("Request blocked.", 403);
   const user = await currentUser();
   if (!user) return jsonError("Sign in first.", 401);
+  if (isDemoUser(user)) return jsonError(DEMO_READ_ONLY, 403);
   const company = await activeCompany();
   if (!company) return jsonError("Finish your company profile first.", 409);
 
@@ -29,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   after(async () => {
-    await Promise.all(runs.map((run) => executeRun(db, run.id, () => new LlmAgentModel())));
+    await Promise.all(runs.map((run) => executeRun(db, run.id, (companyId) => agentModelFor(db, companyId))));
   });
 
   return NextResponse.json({ runs: runs.map((r) => ({ id: r.id, agent: r.agentKey, status: r.status })) }, { status: 202 });

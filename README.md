@@ -10,9 +10,43 @@ An AI business partner for founders. Five built-in specialist agents study a com
 | Competitor Radar | Live web research on competitors | Sourced competitor map, threat levels, gaps to win |
 | Operational Radar | How a company this size runs | Operations health, fixes, automations |
 
+**Connections** give agents what they need: an AI model, web search, and the company's own Stripe, Shopify and Google Analytics data. They are set per company, with secrets encrypted.
+
 **Custom agents** are built in the app. An owner gives one a name, a job, instructions, and optionally tools (search the web, read web pages), a score and a daily or weekly schedule. There are starter templates, and each company can have up to 10.
 
 Built with Next.js 16, React 19, TypeScript and Drizzle ORM on Postgres. There's no AI vendor SDK: agents run on Budera's own engine against any OpenAI-compatible API.
+
+**Try it:** the landing page's "Try the live demo" button opens a sample workspace with two fictional companies, every agent's report and sample connections. No sign-up or API keys are needed.
+
+## What each agent needs
+
+Every agent page has a **How it works** panel with these steps and the live status of each connection.
+
+| Agent | How it works | Needs |
+|---|---|---|
+| Growth GPS | Reads the profile, pulls revenue, repeat customers and traffic from connected data, scores growth readiness, picks the 3 best moves | AI model · optional Stripe, Shopify, Google Analytics |
+| My Paralegal | Works out the jurisdiction, searches official government and regulator sites, reads them, builds a risk-ranked checklist | AI model · web search recommended |
+| Trend Hawk | Searches news, launches, funding and regulation from the last 12 months, reads sources, writes cited signals | AI model · web search required |
+| Competitor Radar | Looks up named competitors and finds others, reads their sites and pricing, maps threats and gaps | AI model · web search required |
+| Operational Radar | Checks failed payments, refunds, unfulfilled orders and fulfilment time, then finds bottlenecks and automations | AI model · optional Stripe, Shopify |
+| Custom agents | Follow the owner's instructions with the tools they're given | AI model · whatever their tools use |
+
+Anything that isn't connected is skipped, and the report says which connection would make it more precise.
+
+## Connections
+
+| Service | What agents get | Credentials |
+|---|---|---|
+| AI model | The model every agent thinks with. Any OpenAI-compatible API | Base URL, model, API key |
+| Web search | Live, citable search results (Tavily, Brave or Serper) | API key |
+| Stripe | Payments by month, refunds, failed charges, repeat customers, subscriptions and MRR | Read-only restricted key |
+| Shopify | Orders, average order value, repeat buyers, refunds, unfulfilled orders, fulfilment time | Store domain + Admin API token (`read_orders`) |
+| Google Analytics 4 | Sessions, users and key events by channel | Property ID + service account JSON (Viewer) |
+
+- **Secrets:** encrypted with AES-256-GCM using `BUDERA_ENCRYPTION_KEY` before they are stored. They are never sent back to the browser; only the last characters are shown. Leaving a secret field blank keeps the saved one.
+- **Test connection:** makes one small real request and records the result.
+- **Fallback:** if a company hasn't connected a model or search, the server's `LLM_*` and `SEARCH_*` variables are used.
+- **Safety:** on hosted deployments, companies can only point the AI model at public https URLs, and redirects aren't followed. Shopify requests are pinned to `*.myshopify.com`, and Google tokens always come from Google's own endpoint.
 
 ## Run it locally
 
@@ -43,7 +77,7 @@ Research agents need a model that supports tool (function) calling. Each custom 
 npm run seed:demo
 ```
 
-Creates a fictional company ("Kaffa Roasters (demo)") with a report from every built-in agent and one custom agent, and prints a local sign-in. Stop the dev server first, because the embedded database allows one process at a time. It refuses to run when `DATABASE_URL` is set.
+Creates the same sample workspace as the live demo (two fictional companies, every report, custom agents and sample connections) under `demo@budera.local`, and prints a local sign-in. Stop the dev server first, because the embedded database allows one process at a time. It refuses to run when `DATABASE_URL` is set.
 
 ### Tests
 
@@ -51,12 +85,15 @@ Creates a fictional company ("Kaffa Roasters (demo)") with a report from every b
 npm test
 ```
 
-34 tests cover:
+47 tests cover:
 - Auth and validation
 - The runner: built-in and custom agents, isolation between companies, task replacement, failures, duplicate runs, stuck runs, schedules
 - Structured output: strict schemas, the JSON-mode fallback and repair retries
 - The research tool loop, using a scripted fake model
 - The page reader's safety checks
+- Connections: secret encryption, validation, company-over-server precedence, connection tests
+- Stripe, Shopify and Google Analytics providers against fake APIs, including JWT signing and pagination limits
+- The demo workspace, and that sample connections and demo schedules never run
 
 ## How the agent engine works
 
@@ -72,7 +109,7 @@ npm test
 ## Deploy
 
 1. Create a Postgres database (Neon, Supabase or RDS).
-2. Import the repo into Vercel and set the variables from `.env.example`: at least `DATABASE_URL`, `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL`.
+2. Import the repo into Vercel and set the variables from `.env.example`: at least `DATABASE_URL` and `BUDERA_ENCRYPTION_KEY`. Add `LLM_*` and `SEARCH_*` if you want server-wide defaults instead of every company connecting its own.
 3. Run migrations once, and again after schema changes:
    ```bash
    DATABASE_URL=... npm run db:migrate
@@ -83,7 +120,9 @@ npm test
 ## Project layout
 
 ```
-src/agents/        built-in registry, custom agent rules and templates, prompts, schemas, engine, runner
+src/agents/        built-in registry (workflow and needs per agent), custom agent rules and templates, prompts, schemas, engine, runner
+src/connections/   service catalog, Stripe/Shopify/GA4 providers, encrypted store, runtime resolution, status
+src/demo/          sample workspace used by the live demo and the seed script
 src/llm/           provider config, OpenAI-compatible client, structured output
 src/tools/         web search providers, safe page reader, tool definitions
 src/app/           landing page, auth, onboarding, app pages, API routes (runs, custom agents, cron)

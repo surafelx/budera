@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DeleteCompanyButton } from "@/components/company/DeleteCompanyButton";
 import { SettingsForm } from "@/components/company/SettingsForm";
 import { describeSetup } from "@/llm/config";
@@ -40,31 +41,32 @@ export default async function SettingsPage() {
       />
 
       <section className="panel">
-        <header className="panel-head">
-          <h2>AI setup</h2>
-          <p>Configured on the server with environment variables. Keys are never shown here.</p>
+        <header className="panel-head row">
+          <div>
+            <h2>AI model, search and data</h2>
+            <p>Each company connects its own model, web search and business data, with secrets encrypted. Anything not connected falls back to the server&apos;s settings.</p>
+          </div>
+          <Link href="/connections" className="btn btn-ghost btn-sm">
+            Open Connections
+          </Link>
         </header>
         <ul className="setup">
           <Status ok={setup.modelConfigured}>
             {setup.modelConfigured ? (
               <>
-                Model <code>{setup.model}</code> via <code>{setup.providerHost}</code>
-                {setup.researchModel ? (
-                  <>
-                    , research with <code>{setup.researchModel}</code>
-                  </>
-                ) : null}
-                {!setup.hasApiKey && " (no API key set, fine for a local model server)"}
+                Server default model <code>{setup.model}</code> via <code>{setup.providerHost}</code>
               </>
             ) : (
-              <>No model. Set <code>LLM_MODEL</code>, <code>LLM_BASE_URL</code> and <code>LLM_API_KEY</code>.</>
+              <>No server default model. Connect one for this company, or set <code>LLM_MODEL</code> on the server.</>
             )}
           </Status>
           <Status ok={Boolean(setup.searchProvider)}>
             {setup.searchProvider ? (
-              <>Web search through <code>{setup.searchProvider}</code></>
+              <>
+                Server default web search through <code>{setup.searchProvider}</code>
+              </>
             ) : (
-              <>No web search. Set <code>SEARCH_PROVIDER</code> (tavily, brave or serper) and <code>SEARCH_API_KEY</code>. Agents can still read pages.</>
+              <>No server default web search. Connect a provider for this company, or set <code>SEARCH_PROVIDER</code>.</>
             )}
           </Status>
           <Status ok={setup.schedulingEnabled}>
@@ -72,7 +74,6 @@ export default async function SettingsPage() {
           </Status>
         </ul>
       </section>
-
       <section className="panel account">
         <header className="panel-head">
           <h2>Account</h2>

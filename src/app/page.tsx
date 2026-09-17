@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AGENTS, AGENT_IDS } from "@/agents/registry";
 import { AgentGlyph, agentHue } from "@/components/app/AgentGlyph";
+import { DemoButton } from "@/components/landing/DemoButton";
 import { RadarSweep } from "@/components/landing/RadarSweep";
 import "./landing.css";
 
@@ -43,6 +44,10 @@ const FAQ = [
   {
     q: "Where does the research come from?",
     a: "Trend Hawk, Competitor Radar and any agent you give research tools search the live web and read pages every time they run, and cite their sources so you can check every claim. The others work from your company profile.",
+  },
+  {
+    q: "What do I need to connect?",
+    a: "An AI model API key from any OpenAI-compatible provider (OpenAI, OpenRouter, Groq and others) is the only requirement. Add a web search key so research agents use live sources, and optionally Stripe, Shopify or Google Analytics so reports use your real revenue, orders and traffic. Keys are encrypted before they are stored and never shown again.",
   },
   {
     q: "What happens to my company information?",
@@ -92,9 +97,9 @@ export default function Landing() {
             </p>
             <div className="hero-actions">
               <Link href="/signup" className="btn btn-primary">Start free</Link>
-              <a href="#brief" className="btn btn-on-ink">See a sample brief</a>
+              <DemoButton />
             </div>
-            <p className="hero-note">Free during early access. Set up in about five minutes.</p>
+            <p className="hero-note">Free during early access. The demo opens a sample workspace with no sign-up.</p>
           </div>
 
           <div className="console-stage">
@@ -192,7 +197,8 @@ export default function Landing() {
                     <div>
                       <span className="eyebrow on-ink">{a.role}</span>
                       <h3>{a.name}</h3>
-                      {a.tools.length > 0 && <span className="web-badge mono">Researches the web</span>}
+                      {a.tools.includes("web_search") && <span className="web-badge mono">Researches the web</span>}
+                      {a.tools.includes("stripe_revenue") && <span className="web-badge data-badge mono">Reads your Stripe &amp; Shopify data</span>}
                     </div>
                   </div>
                   <div className="roster-col">

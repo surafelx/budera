@@ -22,10 +22,14 @@ async function getJson(fetchImpl: FetchLike, url: string, init: RequestInit): Pr
   return res.json();
 }
 
-/** Returns the configured web search provider, or null when search isn't set up. */
+/** Returns the server's web search provider from SEARCH_PROVIDER and SEARCH_API_KEY, or null when search isn't set up. */
 export function searchProviderFromEnv(env: NodeJS.ProcessEnv = process.env, fetchImpl: FetchLike = fetch): SearchProvider | null {
-  const name = (env.SEARCH_PROVIDER ?? "").trim().toLowerCase();
-  const key = env.SEARCH_API_KEY?.trim();
+  return searchProvider(env.SEARCH_PROVIDER ?? "", env.SEARCH_API_KEY ?? "", fetchImpl);
+}
+
+export function searchProvider(provider: string, apiKey: string, fetchImpl: FetchLike = fetch): SearchProvider | null {
+  const name = provider.trim().toLowerCase();
+  const key = apiKey.trim();
   if (!key) return null;
 
   if (name === "tavily") {
