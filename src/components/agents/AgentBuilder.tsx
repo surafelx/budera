@@ -6,6 +6,7 @@ import type { AgentTemplate, CustomAgentInput } from "@/agents/custom";
 import { SERVICES } from "@/connections/catalog";
 import { TOOL_IDS, TOOL_INFO, type ToolId } from "@/tools/meta";
 import { AgentGlyph } from "@/components/app/AgentGlyph";
+import { HandNote } from "@/components/app/HandNote";
 
 const EMPTY: CustomAgentInput = { name: "", role: "", instructions: "", tools: [], scoring: false, scoreLabel: "", schedule: "manual", model: "" };
 
@@ -238,7 +239,12 @@ export function AgentBuilder({
         </div>
       </div>
 
-      <SpecPreview draft={draft} agentKey={agentId ? `custom:${agentId}` : `draft:${draft.name.trim().toLowerCase()}`} />
+      <div className="spec-wrap">
+        <div className="spec-note">
+          <HandNote arrow="down">your agent, as you build it</HandNote>
+        </div>
+        <SpecPreview draft={draft} agentKey={agentId ? `custom:${agentId}` : `draft:${draft.name.trim().toLowerCase()}`} />
+      </div>
     </form>
   );
 }

@@ -1,0 +1,157 @@
+/*
+ * Sketch layer: hand-drawn accents over the dark glass design. Pencil-wobbled edges with a second offset stroke,
+ * scribbled selection marks, squiggle underlines, handwritten notes and hatched fills. Rules are prefixed with `body`
+ * so they win over app.css and landing.css without editing them; delete this file to go back to plain glass.
+ */
+:root {
+  --hand: var(--font-hand), "Segoe Print", "Bradley Hand", cursive;
+  --chalk: rgba(236, 240, 250, 0.3);
+  --chalk-strong: rgba(236, 240, 250, 0.55);
+  --pencil: #ffb08c;
+  /* Irregular corners: each corner a slightly different curve, like a box drawn by hand. */
+  --wobble-lg: 26px 7px 30px 9px / 9px 30px 7px 26px;
+  --wobble-md: 18px 5px 20px 6px / 6px 20px 5px 18px;
+  --wobble-sm: 12px 4px 13px 5px / 5px 13px 4px 12px;
+  --wobble-btn: 255px 16px 225px 16px / 16px 225px 16px 255px;
+  --double-stroke: 2px 3px 0 -1px rgba(236, 240, 250, 0.16);
+  --scribble-ring: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 44' preserveAspectRatio='none'%3E%3Cpath d='M9 25C9 9 101 3 113 17c10 12-22 23-58 24C20 42 3 34 7 22 11 11 45 5 76 6c20 1 34 5 39 12' fill='none' stroke='%23ffb08c' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --squiggle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'%3E%3Cpath d='M3 9C24 3 40 12 62 7s38-5 58 0 36 4 52-1 18-2 25 0' fill='none' stroke='%23ff8349' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M18 12c30-4 70-2 110-3' fill='none' stroke='%23ff8349' stroke-width='1.5' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E");
+  --circle-scribble: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60' preserveAspectRatio='none'%3E%3Cpath d='M31 5C14 4 4 17 5 31s12 25 27 24 23-12 23-26S44 5 27 7C18 8 11 13 9 19' fill='none' stroke='%23f4f6fb' stroke-width='2' stroke-linecap='round' vector-effect='non-scaling-stroke' opacity='.85'/%3E%3C/svg%3E");
+}
+
+/* ---------- Pencil paper ---------- */
+body::after {
+  opacity: 0.7;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(rgba(170, 200, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(170, 200, 255, 0.035) 1px, transparent 1px);
+  background-size: 160px 160px, 28px 28px, 28px 28px;
+}
+
+/* ---------- Hand-drawn surfaces ---------- */
+body :is(.panel, .score-tile, .agent-card, .conn-card, .fleet, .template, .toggle-row, .auth-card, .wizard, .spec-preview, .build-callout, .competitor, .need, .topbar-inner, .dropdown-panel, .demo-banner) {
+  border-width: 1.5px;
+  border-color: var(--chalk);
+  border-radius: var(--wobble-lg);
+  box-shadow: var(--glass-edge), var(--double-stroke), var(--shadow);
+}
+body :is(.score-tile, .agent-card, .template, .toggle-row, .need, .competitor, .dropdown-panel) { border-radius: var(--wobble-md); }
+body :is(.score-tile, .agent-card, .template):hover { border-color: var(--chalk-strong); box-shadow: var(--glass-edge), 3px 4px 0 -1px rgba(236, 240, 250, 0.26), 0 30px 60px -24px rgba(0, 0, 0, 0.85); }
+body .template.on { border-color: rgba(255, 131, 73, 0.8); box-shadow: var(--glass-edge), 3px 4px 0 -1px rgba(255, 131, 73, 0.55), 0 10px 40px -10px rgba(255, 106, 43, 0.5); }
+body .landing :is(.brief, .steps li, .plan, .spec-card, .roster-row, .console) {
+  border-width: 1.5px;
+  border-color: var(--chalk);
+  border-radius: var(--wobble-lg);
+  box-shadow: var(--glass-edge), 3px 4px 0 -1px rgba(236, 240, 250, 0.16), var(--shadow);
+}
+body .landing .brief-tasks li { border-style: dashed; border-radius: var(--wobble-md); }
+body .landing .hero h1::after { content: ""; display: block; width: min(380px, 80%); height: 16px; margin-top: 10px; background: var(--squiggle) left center / 100% 100% no-repeat; }
+body .build-callout { border-style: dashed; border-color: rgba(255, 131, 73, 0.55); }
+body .score-tile.state-working { border-color: rgba(242, 179, 61, 0.55); }
+body .conn-card.state-connected, body .conn-card.state-server { border-color: rgba(108, 239, 180, 0.4); }
+body .conn-card.state-error { border-color: rgba(255, 95, 95, 0.55); }
+body .danger-zone { border-style: dashed !important; }
+
+/* Pencil separators */
+body :is(.summaries li, .tasks li, .history li, .spec-lines div, .report-table th, .report-table td, .brief-head, .spec-head, .sidebar-user, .menu-sep) { border-color: rgba(236, 240, 250, 0.14); border-bottom-style: dashed; }
+body .menu-sep { height: 0; background: none; border-bottom: 1.5px dashed rgba(236, 240, 250, 0.16); }
+
+/* ---------- Handwriting ---------- */
+body :is(.page-head .eyebrow, .section-title h2, .landing .section-head .eyebrow, .landing .section-copy .eyebrow, .landing .hero .eyebrow, .conn-used .eyebrow, .spec-prompt .eyebrow, .menu-label, .brief-tasks .eyebrow) {
+  font-family: var(--hand);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.1;
+  color: var(--pencil);
+}
+body .page-head .eyebrow { display: inline-block; transform: rotate(-1.5deg); transform-origin: left; }
+body .page-head .eyebrow a { text-decoration-style: wavy; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+body .section-title h2 { font-size: 23px; color: var(--text); }
+body .section-title h2::before { width: 22px; height: 12px; background: var(--squiggle) center / 100% 100% no-repeat; }
+body .menu-label { font-size: 18px; padding-bottom: 2px; }
+body .conn-used .eyebrow, body .spec-prompt .eyebrow { font-size: 18px; }
+
+/* Squiggle underline under page titles. Gradient-clipped text would clip the underline too, so titles are solid ink. */
+body :is(.page-head h1, .landing h1, .landing h2) { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: #f4f6fb; }
+body .page-head h1::after, body .landing .section-head h2::after {
+  content: "";
+  display: block;
+  width: min(210px, 55%);
+  height: 12px;
+  margin-top: 8px;
+  background: var(--squiggle) left center / 100% 100% no-repeat;
+}
+
+/* Handwritten margin notes with a doodled arrow */
+.hand-note { position: relative; display: inline-flex; align-items: flex-end; gap: 2px; font-family: var(--hand); font-size: 22px; font-weight: 700; line-height: 1; color: var(--pencil); pointer-events: none; user-select: none; }
+.hand-note-text { transform: rotate(-4deg); white-space: nowrap; }
+.hand-arrow { width: 46px; height: 34px; flex: none; }
+.hand-note.arrow-down .hand-arrow { transform: translateY(14px); }
+.hand-note.arrow-down-left { flex-direction: row-reverse; }
+.hand-note.arrow-down-left .hand-arrow { transform: scaleX(-1) translateY(14px); }
+.hand-note.arrow-left { flex-direction: row-reverse; align-items: center; }
+.hand-note.arrow-left .hand-arrow { transform: scaleX(-1) rotate(-55deg); }
+.hand-note.arrow-right .hand-arrow { transform: rotate(-55deg); }
+
+/* ---------- Controls ---------- */
+body .btn { border-radius: var(--wobble-btn); }
+body .btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 3px 4px 0 -1px rgba(255, 217, 199, 0.75), 0 10px 28px -10px rgba(255, 106, 43, 0.6); }
+body .btn-primary:hover:not([disabled]) { transform: translate(-1px, -1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 4px 5px 0 -1px rgba(255, 217, 199, 0.9), 0 12px 34px -8px rgba(255, 106, 43, 0.75); }
+body .btn-primary:active:not([disabled]) { transform: translate(2px, 3px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 -1px rgba(255, 217, 199, 0.75); }
+body :is(.btn-ghost, .btn-on-ink) { border-width: 1.5px; border-color: var(--chalk); }
+body :is(.btn-ghost, .btn-on-ink):hover { border-color: var(--chalk-strong); }
+body :is(.input, .select, .textarea) { border-width: 1.5px; border-color: rgba(236, 240, 250, 0.2); border-radius: var(--wobble-sm); }
+body :is(.pill, .need-tag, .prio-tag, .level-tag, .tool-tag, .spec-chip, .tags li, .choice span, .chips a, .source-links a, .web-badge, .tool-chip, .secret-tag) { border-radius: var(--wobble-sm); }
+body .task-check input { border-radius: 5px 8px 4px 9px; border-width: 1.8px; }
+body .task-check input:checked::after { border-width: 0 0 2.5px 2.5px; }
+body .switch { border-radius: 14px 11px 13px 12px / 12px 13px 11px 14px; }
+
+/* Hand-drawn avatars: blobby outlines, slightly off-axis, text kept upright */
+body .glyph { border-radius: 42% 58% 46% 54% / 55% 44% 56% 45%; border-width: 1.5px; rotate: -4deg; }
+body .glyph-core { rotate: 4deg; }
+body .glyph[data-state]::after { border-radius: 48% 52% 45% 55%; }
+
+/* ---------- Selected states: scribbled around, not filled in ---------- */
+body .tabs { background: transparent; border: 0; box-shadow: none; padding: 2px; }
+body .tab.active { background: transparent; border-color: transparent; box-shadow: none; color: #fff; }
+body .tab.active::after { content: ""; position: absolute; inset: -5px -9px -6px -8px; background: var(--scribble-ring) center / 100% 100% no-repeat; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  body .tab.active::after { animation: draw-in 0.35s ease-out; }
+  @keyframes draw-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+}
+body .dock-link.active { background: transparent; box-shadow: none; }
+body .dock-link.active::after { left: -3px; right: -3px; top: -3px; bottom: -3px; width: auto; height: auto; transform: none; border-radius: 0; background: var(--circle-scribble) center / 100% 100% no-repeat; }
+body .segmented { border-radius: var(--wobble-md); background: transparent; border: 1.5px dashed var(--chalk); }
+body .segmented a.on { background: rgba(255, 255, 255, 0.1); border-radius: var(--wobble-sm); box-shadow: 2px 2px 0 -1px rgba(236, 240, 250, 0.3); }
+body .menu-item.is-current { background: transparent; box-shadow: inset 3px 0 0 -1px var(--pencil); }
+
+/* ---------- Pencil fills ---------- */
+body .score-bar, body .landing .bscore-bar { height: 8px; border-radius: 3px 6px 4px 7px; background: transparent; border: 1.2px solid rgba(236, 240, 250, 0.22); }
+body .score-bar i, body .landing .bscore-bar i {
+  border-radius: 2px 5px 3px 6px;
+  background: repeating-linear-gradient(-55deg, hsl(var(--h, 20) 95% 66%) 0 2px, transparent 2px 5px);
+  box-shadow: none;
+}
+body .wizard-progress span { border-radius: 3px 6px 2px 5px; background: transparent; border: 1.2px solid rgba(236, 240, 250, 0.2); height: 7px; }
+body .wizard-progress span.on { background: repeating-linear-gradient(-55deg, #ff8349 0 2px, transparent 2px 5px); border-color: rgba(255, 131, 73, 0.6); box-shadow: none; }
+body .big-score::after { content: ""; position: absolute; inset: -9px; border: 1.5px dashed rgba(236, 240, 250, 0.22); border-radius: 47% 53% 49% 51% / 52% 47% 53% 48%; rotate: 8deg; }
+body .playbook-steps li:not(:last-child)::before { background: none; border-left: 1.5px dashed rgba(236, 240, 250, 0.22); width: 0; }
+body .builder-step { border-radius: 48% 52% 44% 56% / 54% 45% 55% 46%; border-width: 1.5px; font-family: var(--hand); font-size: 17px; font-weight: 700; }
+
+/* ---------- Placement of margin notes ---------- */
+.head-cta { position: relative; display: grid; justify-items: end; gap: 6px; }
+.head-cta .hand-note { position: absolute; right: calc(100% + 6px); top: -14px; }
+.spec-wrap { position: sticky; top: 96px; display: grid; gap: 0; align-self: start; }
+body .spec-wrap .spec-preview { position: static; }
+.spec-note { display: flex; justify-content: flex-end; margin: 0 16px 14px 0; }
+@media (max-width: 1180px) { .spec-wrap { display: none; } }
+.conn-note-hand { margin-left: auto; }
+.landing .console-stage .hand-note { position: absolute; left: -4px; top: 2px; z-index: 2; }
+
+@media (max-width: 900px) {
+  .head-cta .hand-note { display: none; }
+  .landing .console-stage .hand-note { display: none; }
+}

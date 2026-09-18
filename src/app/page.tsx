@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AGENTS, AGENT_IDS } from "@/agents/registry";
 import { AgentGlyph, agentHue } from "@/components/app/AgentGlyph";
+import { HandNote } from "@/components/app/HandNote";
 import { DemoButton } from "@/components/landing/DemoButton";
 import { RadarSweep } from "@/components/landing/RadarSweep";
 import "./landing.css";
@@ -104,6 +105,7 @@ export default function Landing() {
 
           <div className="console-stage">
             <RadarSweep />
+            <HandNote arrow="down">your agents, at work</HandNote>
             <figure className="console" aria-label="Example agent run">
               <div className="console-bar">
                 <span className="dots" aria-hidden="true"><i /><i /><i /></span>

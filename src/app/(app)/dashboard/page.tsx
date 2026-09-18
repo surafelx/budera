@@ -8,6 +8,7 @@ import { AGENT_IDS, AGENTS, customKey } from "@/agents/registry";
 import { MAX_CUSTOM_AGENTS } from "@/agents/custom";
 import { expireStaleRuns, latestRuns, latestSuccessfulRuns } from "@/agents/runner";
 import { AgentGlyph, agentHue, agentState } from "@/components/app/AgentGlyph";
+import { HandNote } from "@/components/app/HandNote";
 import { RunButton } from "@/components/app/RunButton";
 import { isUsable, serviceStates } from "@/connections/status";
 import { listConnections } from "@/connections/store";
@@ -91,7 +92,10 @@ export default async function DashboardPage() {
             {hasReports ? `Here's where ${company.name} stands, and what to do next.` : `Run your agents to get ${company.name}'s first brief. It takes a few minutes.`}
           </p>
         </div>
-        <RunButton agents={keys} label={hasReports ? "Run all agents again" : "Run all agents"} initiallyRunning={anyRunning} />
+        <div className="head-cta">
+          {!hasReports && <HandNote arrow="right">one click runs them all</HandNote>}
+          <RunButton agents={keys} label={hasReports ? "Run all agents again" : "Run all agents"} initiallyRunning={anyRunning} />
+        </div>
       </header>
 
       {!modelReady && (

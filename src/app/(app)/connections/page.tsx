@@ -5,6 +5,7 @@ import { SERVICE_IDS, SERVICES, type ServiceDef, type ServiceId } from "@/connec
 import { isUsable, readiness, serverFallbacks, serviceStates } from "@/connections/status";
 import { listConnections } from "@/connections/store";
 import { ConnectionCard } from "@/components/connections/ConnectionCard";
+import { HandNote } from "@/components/app/HandNote";
 import { listCustomAgents } from "@/lib/agents-data";
 import { isDemoUser } from "@/lib/demo";
 import { requireCompany } from "@/lib/session";
@@ -76,6 +77,7 @@ export default async function ConnectionsPage() {
           <div className="section-title">
             <h2 id={`cat-${cat.id}`}>{cat.title}</h2>
             <span className="muted">{cat.blurb}</span>
+            {cat.id === "Required" && !isUsable(states.ai_model) && <HandNote arrow="down" className="conn-note-hand">start here</HandNote>}
           </div>
           <div className="conn-grid">
             {SERVICE_IDS.filter((s) => SERVICES[s].category === cat.id).map((s) => (
