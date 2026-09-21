@@ -179,7 +179,8 @@ describe("stored connections", () => {
   });
 
   it("records a failed test with a useful message", async () => {
-    await saveConnection(db, companyId, "stripe", { secrets: { secretKey: "rk_live_revoked" } }, env);
+    const saved = await saveConnection(db, companyId, "stripe", { secrets: { secretKey: "rk_live_revokedkey123" } }, env);
+    expect(saved.ok).toBe(true);
     const view = await testConnection(db, companyId, "stripe", env, async () => new Response("{}", { status: 401 }));
     expect(view).toMatchObject({ status: "error", statusMessage: "Stripe rejected the credentials." });
     const ok = await testConnection(db, companyId, "stripe", env, async () => json({ data: [] }));
